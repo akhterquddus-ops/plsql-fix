@@ -1,0 +1,32 @@
+{
+  "task": "demo_leap_year",
+  "setting": "none",
+  "model": "gemma4:e4b",
+  "num_ctx": 8192,
+  "device": "gpu",
+  "max_attempts": 3,
+  "solved": true,
+  "attempts_used": 1,
+  "wall_seconds": 3.46,
+  "timestamp": "2026-10-22T00:05:29",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 399,
+      "output_tokens": 83,
+      "seconds": 1.27,
+      "candidate": "create or replace function is_leap_year(p_year in pls_integer) return boolean is\nbegin\n  return (mod(p_year, 4) = 0 and mod(p_year, 100) <> 0) or (mod(p_year, 400) = 0);\nend;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

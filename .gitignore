@@ -1,0 +1,19 @@
+# third-party downloads (re-fetched by scripts)
+utPLSQL/
+utPLSQL.zip
+
+# Python
+__pycache__/
+*.pyc
+.env
+.venv/
+
+# models, embeddings, large outputs
+*.gguf
+*.safetensors
+*.npy
+*.faiss
+
+# OS / editor
+.vscode/
+Thumbs.db

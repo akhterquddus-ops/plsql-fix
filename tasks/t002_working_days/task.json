@@ -1,0 +1,10 @@
+{
+  "id": "t002_working_days",
+  "title": "Working-day count for leave requests is off",
+  "category": "local",
+  "hops": 0,
+  "entry_object": "T002_WORKING_DAYS",
+  "buggy_objects": ["T002_WORKING_DAYS"],
+  "bug_report": "Leave requests show the wrong number of working days for most date ranges.",
+  "source": "self-written"
+}

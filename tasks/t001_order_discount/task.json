@@ -1,0 +1,10 @@
+{
+  "id": "t001_order_discount",
+  "title": "Order total wrong when a line has a discount",
+  "category": "cross_object",
+  "hops": 1,
+  "entry_object": "T001_ORDERS_API",
+  "buggy_objects": ["T001_PRICING"],
+  "bug_report": "Customers report that order totals are wrong (some are even negative) when an order contains a discounted line. Orders without discounts look correct.",
+  "source": "self-written"
+}

@@ -1,0 +1,10 @@
+{
+  "id": "t003_transfer_fee",
+  "title": "Transfer fee charged incorrectly",
+  "category": "cross_object",
+  "hops": 2,
+  "entry_object": "T003_ACCOUNTS_API",
+  "buggy_objects": ["T003_FEES"],
+  "bug_report": "Customers making small and normal transfers are charged too much. Large transfers seem fine.",
+  "source": "self-written"
+}

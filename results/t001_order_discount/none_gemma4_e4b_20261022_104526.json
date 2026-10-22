@@ -1,0 +1,80 @@
+{
+  "task": "t001_order_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T001_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "T001_PRICING"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "first_prompt_tokens": 636,
+  "wall_seconds": 42.99,
+  "timestamp": "2026-10-22T10:45:26",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 636,
+      "output_tokens": 222,
+      "seconds": 14.87,
+      "edited_objects": [
+        "T001_ORDERS_API"
+      ],
+      "candidate": "create or replace package t001_orders_api as\n  -- Total amount of an order: the sum of its line amounts.\n  function order_total(p_order_id in number) return number;\nend t001_orders_api;\n/\ncreate or replace package body t001_orders_api as\n  function order_total(p_order_id in number) return number is\n    l_total number := 0;\n  begin\n    for r in (select qty, unit_price, discount_pct\n                from t001_order_lines\n               where order_id = p_order_id) loop\n      l_total := l_total + t001_pricing.line_amount(r.qty, r.unit_price, r.discount_pct);\n    end loop;\n    return l_total;\n  end order_total;\nend t001_orders_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1075,
+      "output_tokens": 222,
+      "seconds": 10.5,
+      "edited_objects": [
+        "T001_ORDERS_API"
+      ],
+      "candidate": "create or replace package t001_orders_api as\n  -- Total amount of an order: the sum of its line amounts.\n  function order_total(p_order_id in number) return number;\nend t001_orders_api;\n/\ncreate or replace package body t001_orders_api as\n  function order_total(p_order_id in number) return number is\n    l_total number := 0;\n  begin\n    for r in (select qty, unit_price, discount_pct\n                from t001_order_lines\n               where order_id = p_order_id) loop\n      l_total := l_total + t001_pricing.line_amount(r.qty, r.unit_price, r.discount_pct);\n    end loop;\n    return l_total;\n  end order_total;\nend t001_orders_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1514,
+      "output_tokens": 222,
+      "seconds": 11.04,
+      "edited_objects": [
+        "T001_ORDERS_API"
+      ],
+      "candidate": "create or replace package t001_orders_api as\n  -- Total amount of an order: the sum of its line amounts.\n  function order_total(p_order_id in number) return number;\nend t001_orders_api;\n/\ncreate or replace package body t001_orders_api as\n  function order_total(p_order_id in number) return number is\n    l_total number := 0;\n  begin\n    for r in (select qty, unit_price, discount_pct\n                from t001_order_lines\n               where order_id = p_order_id) loop\n      l_total := l_total + t001_pricing.line_amount(r.qty, r.unit_price, r.discount_pct);\n    end loop;\n    return l_total;\n  end order_total;\nend t001_orders_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

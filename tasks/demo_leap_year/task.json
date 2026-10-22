@@ -1,0 +1,10 @@
+{
+  "id": "demo_leap_year",
+  "title": "Leap-year check wrong for some years",
+  "category": "local",
+  "hops": 0,
+  "entry_object": "IS_LEAP_YEAR",
+  "buggy_objects": ["IS_LEAP_YEAR"],
+  "bug_report": "is_leap_year gives the wrong answer for some years.",
+  "source": "self-written (demo)"
+}

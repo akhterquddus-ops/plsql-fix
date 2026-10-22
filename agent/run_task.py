@@ -63,7 +63,12 @@ Rules:
 - Keep object names, parameters and return types unchanged.
 - Change only what is needed. Never create or change test packages.
 - Put all code in ONE ```sql code block. End each statement with a line containing only "/".
+- The first line inside the code block must be a comment: -- Cause: <object name and the exact
+  mistake, in one sentence>
+- Your code must differ from the current code. Returning it unchanged never fixes anything.
 - No explanation outside the code block."""
+
+CAUSE_RE = re.compile(r"--\s*cause\s*:\s*(.+)", re.I)
 
 
 # --------------------------------------------------------------------------- script parsing
@@ -113,6 +118,16 @@ def group_by_object(stmts):
         if name:
             groups.setdefault(name, []).append(s)
     return groups
+
+
+def unit_key(stmt):
+    """(OBJECT_NAME, 'PACKAGE BODY' / 'FUNCTION' / ...) for a CREATE statement."""
+    m = CREATE_RE.search(stmt)
+    return (m.group(2).upper(), re.sub(r"\s+", " ", m.group(1)).upper()) if m else None
+
+
+def normalize(stmt):
+    return re.sub(r"\s+", " ", stmt).strip().lower()
 
 
 def as_script(stmts):
@@ -277,8 +292,8 @@ def preflight():
                  "powershell -ExecutionPolicy Bypass -File .\\scripts\\setup_oracle.ps1")
 
 
-def ask_model(model, messages, num_ctx, timeout, num_gpu=None):
-    options = {"temperature": 0, "seed": 42, "num_ctx": num_ctx}
+def ask_model(model, messages, num_ctx, timeout, num_gpu=None, seed=42, temperature=0.0):
+    options = {"temperature": temperature, "seed": seed, "num_ctx": num_ctx}
     if num_gpu is not None:
         options["num_gpu"] = num_gpu  # 0 = run fully on CPU
     try:
@@ -310,7 +325,7 @@ def extract_code(text):
 
 # --------------------------------------------------------------------------- main loop
 def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_ctx=8192,
-             timeout=300, num_gpu=None, hops=2):
+             timeout=300, num_gpu=None, hops=2, seed=42, temperature=0.0):
     preflight()
     task = load_task(task_dir)
     protected = set(object_names(task["tests"]))
@@ -336,12 +351,17 @@ def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_c
             "Fix the bug so that all tests pass.")},
     ]
 
+    # Current source of every unit in the database, to detect "fixes" that change nothing.
+    current = {unit_key(s): normalize(s) for s in task["buggy"] if unit_key(s)}
+
     attempts, solved, final_edit, t0 = [], False, [], time.time()
     for i in range(1, max_attempts + 1):
-        reply, stats = ask_model(model, messages, num_ctx, timeout, num_gpu)
+        reply, stats = ask_model(model, messages, num_ctx, timeout, num_gpu, seed, temperature)
         candidate = split_statements(extract_code(reply))
         names = unique(object_names(candidate))
+        cause = CAUSE_RE.search(reply)
         record = {"attempt": i, **stats, "edited_objects": names,
+                  "cause": cause.group(1).strip() if cause else None,
                   "candidate": as_script(candidate) if candidate else reply}
 
         if not candidate:
@@ -360,8 +380,15 @@ def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_c
             outcome, feedback = "unknown_object", (
                 f"These objects do not exist in the application: {unknown}. "
                 "Only modify existing objects.")
+        elif all(current.get(unit_key(s)) == normalize(s) for s in candidate):
+            outcome, feedback = "unchanged", (
+                "Your code is identical to the current code, so nothing changed and the tests "
+                "fail exactly as before. Compare the expected and actual values in the test "
+                "output, find the expression that produces the wrong value, and change it.")
         else:
             errs = run_statements(conn, candidate)
+            for s in candidate:
+                current[unit_key(s)] = normalize(s)
             if errs:
                 outcome = "compile_error"
                 record["compile_errors"] = errs
@@ -382,6 +409,8 @@ def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_c
         print(f"  attempt {i}: {outcome:<17} edited {','.join(names) or '-':<28} "
               f"({stats['seconds']}s, {stats['prompt_tokens']} in / "
               f"{stats['output_tokens']} out tokens)")
+        if record["cause"]:
+            print(f"             cause: {record['cause'][:110]}")
         if solved:
             break
         messages.append({"role": "assistant", "content": reply})
@@ -396,6 +425,8 @@ def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_c
         "setting": setting,
         "graph_hops": hops if setting == "graph" else None,
         "model": model,
+        "seed": seed,
+        "temperature": temperature,
         "device": "cpu" if num_gpu == 0 else "gpu",
         "num_ctx": num_ctx,
         "max_attempts": max_attempts,
@@ -406,6 +437,8 @@ def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_c
         "attempts_used": len(attempts),
         "fixed_objects": final_edit,
         "localized": localized,
+        "touched_buggy_object": any(set(a["edited_objects"]) & set(task["buggy_objects"])
+                                    for a in attempts),
         "first_prompt_tokens": attempts[0]["prompt_tokens"] if attempts else None,
         "wall_seconds": round(time.time() - t0, 2),
         "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -416,7 +449,7 @@ def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_c
     out_dir = ROOT / "results" / task["id"]
     out_dir.mkdir(parents=True, exist_ok=True)
     safe_model = re.sub(r"[^\w.-]", "_", model)
-    out_file = out_dir / f"{setting}_{safe_model}_{datetime.now():%Y%m%d_%H%M%S}.json"
+    out_file = out_dir / f"{setting}_{safe_model}_s{seed}_{datetime.now():%Y%m%d_%H%M%S}.json"
     out_file.write_text(json.dumps(result, indent=2), encoding="utf-8")
 
     status = "SOLVED" if solved else "NOT SOLVED"
@@ -436,11 +469,15 @@ def main():
     p.add_argument("--num-ctx", type=int, default=8192,
                    help="context window; Ollama's default (4096) is too small for larger tasks")
     p.add_argument("--timeout", type=int, default=300, help="seconds per model call")
+    p.add_argument("--temperature", type=float, default=0.0,
+                   help="0 = greedy; use e.g. 0.2 with different --seed values for repeat runs")
+    p.add_argument("--seed", type=int, default=42, help="sampling seed (matters when temperature > 0)")
     p.add_argument("--cpu", action="store_true",
                    help="run the model fully on CPU (num_gpu=0), e.g. while the GPU is unstable")
     a = p.parse_args()
     result = run_task(a.task_dir, a.setting, a.model, a.max_attempts, a.num_ctx, a.timeout,
-                      num_gpu=0 if a.cpu else None, hops=a.hops)
+                      num_gpu=0 if a.cpu else None, hops=a.hops, seed=a.seed,
+                      temperature=a.temperature)
     sys.exit(0 if result["solved"] else 1)
 
 

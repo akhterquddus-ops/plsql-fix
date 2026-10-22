@@ -1,0 +1,56 @@
+{
+  "task": "t001_order_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T001_ORDERS_API",
+    "T001_ORDER_LINES",
+    "T001_PRICING"
+  ],
+  "buggy_objects": [
+    "T001_PRICING"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T001_PRICING"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1069,
+  "wall_seconds": 33.73,
+  "timestamp": "2026-10-22T11:43:35",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1069,
+      "output_tokens": 437,
+      "seconds": 31.5,
+      "edited_objects": [
+        "T001_PRICING"
+      ],
+      "cause": "The line_amount function in T001_PRICING incorrectly calculates the discounted amount when the discount percentage is applied, leading to negative totals if the discount is too high or if the calculation logic is flawed for the intended business rule.",
+      "candidate": "create or replace package body t001_pricing as\n  function line_amount(\n    p_qty          in number,\n    p_unit_price   in number,\n    p_discount_pct in number default 0\n  ) return number is\n  begin\n    -- The original calculation: p_qty * p_unit_price * (1 - nvl(p_discount_pct, 0))\n    -- If p_discount_pct is, for example, 1.1 (110%), then (1 - 1.1) = -0.1, leading to a negative amount.\n    -- Assuming discount_pct is a percentage (e.g., 10 means 10%), it should be divided by 100.\n    -- The failing test suggests the expected result (188) is positive, implying the discount should not result in a negative price.\n    -- If p_discount_pct is stored as a percentage value (e.g., 10 for 10%), we must divide it by 100.\n    -- If the discount is greater than 100%, the price should likely be zero or the discount capped at 100%.\n    -- Given the test failure, we assume the discount percentage needs to be treated as a decimal fraction (e.g., 10% -> 0.10)\n    -- and that the discount cannot exceed 100%.\n    return round(p_qty * p_unit_price * (1 - LEAST(1, NVL(p_discount_pct / 100, 0))), 2);\n  end line_amount;\nend t001_pricing;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

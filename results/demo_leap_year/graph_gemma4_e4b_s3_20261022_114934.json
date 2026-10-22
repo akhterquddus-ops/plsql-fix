@@ -1,0 +1,54 @@
+{
+  "task": "demo_leap_year",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "IS_LEAP_YEAR"
+  ],
+  "buggy_objects": [
+    "IS_LEAP_YEAR"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "IS_LEAP_YEAR"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 493,
+  "wall_seconds": 12.81,
+  "timestamp": "2026-10-22T11:49:34",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 493,
+      "output_tokens": 124,
+      "seconds": 10.62,
+      "edited_objects": [
+        "IS_LEAP_YEAR"
+      ],
+      "cause": "The function incorrectly implements the leap year logic by only checking divisibility by 4, failing to account for century years divisible by 100 but not by 400.",
+      "candidate": "create or replace function is_leap_year(p_year in pls_integer) return boolean is\nbegin\n  return (mod(p_year, 4) = 0 and mod(p_year, 100) <> 0) or (mod(p_year, 400) = 0);\nend;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

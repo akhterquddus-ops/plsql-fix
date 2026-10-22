@@ -1,0 +1,54 @@
+{
+  "task": "t002_working_days",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 929,
+  "wall_seconds": 27.41,
+  "timestamp": "2026-10-22T11:51:24",
+  "baseline": {
+    "tests": 5,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 929,
+      "output_tokens": 352,
+      "seconds": 25.18,
+      "edited_objects": [
+        "T002_WORKING_DAYS"
+      ],
+      "cause": "The loop condition and the logic for counting days are incorrect, failing to include the end date and miscalculating weekdays.",
+      "candidate": "create or replace function t002_working_days(\n  p_start in date,\n  p_end   in date\n) return pls_integer is\n  -- Working days (Monday to Friday) between p_start and p_end, counting both dates.\n  l_day   date        := trunc(p_start);\n  l_count pls_integer := 0;\nbegin\n  if p_start is null or p_end is null or trunc(p_end) < trunc(p_start) then\n    return 0;\n  end if;\n  while l_day <= trunc(p_end) loop\n    -- Check if the day is a weekday (Monday=2 to Friday=6 in standard SQL DATE dayofweek, or using ISO week day)\n    -- TRUNC(date, 'IW') returns the Monday of the week. Subtracting it from the date gives the day offset (0=Mon, 6=Sun).\n    -- If the offset is 0, 1, 2, 3, or 4, it's a weekday.\n    if (l_day - trunc(l_day, 'IW')) < 5 then\n      l_count := l_count + 1;\n    end if;\n    l_day := l_day + 1;\n  end loop;\n  return l_count;\nend t002_working_days;\n/",
+      "tests": {
+        "tests": 5,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

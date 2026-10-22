@@ -1,0 +1,76 @@
+{
+  "task": "t001_order_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T001_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "T001_PRICING"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 686,
+  "wall_seconds": 45.24,
+  "timestamp": "2026-10-22T11:42:59",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 686,
+      "output_tokens": 195,
+      "seconds": 14.67,
+      "edited_objects": [
+        "T001_ORDERS_API"
+      ],
+      "cause": "The line_amount function in t001_pricing is likely returning a negative value when a discount is applied, leading to incorrect order totals.",
+      "candidate": "create or replace package body t001_orders_api as\n  function order_total(p_order_id in number) return number is\n    l_total number := 0;\n  begin\n    for r in (select qty, unit_price, discount_pct\n                from t001_order_lines\n               where order_id = p_order_id) loop\n      l_total := l_total + t001_pricing.line_amount(r.qty, r.unit_price, r.discount_pct);\n    end loop;\n    return l_total;\n  end order_total;\nend t001_orders_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 934,
+      "output_tokens": 194,
+      "seconds": 7.07,
+      "edited_objects": [
+        "T001_ORDERS_API"
+      ],
+      "cause": "The line_amount function in t001_pricing is incorrectly calculating the line total when a discount is applied, resulting in negative values.",
+      "candidate": "create or replace package body t001_orders_api as\n  function order_total(p_order_id in number) return number is\n    l_total number := 0;\n  begin\n    for r in (select qty, unit_price, discount_pct\n                from t001_order_lines\n               where order_id = p_order_id) loop\n      l_total := l_total + t001_pricing.line_amount(r.qty, r.unit_price, r.discount_pct);\n    end loop;\n    return l_total;\n  end order_total;\nend t001_orders_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1181,
+      "output_tokens": 329,
+      "seconds": 17.19,
+      "edited_objects": [
+        "T001_ORDERS_API"
+      ],
+      "cause": "The bug is not in t001_orders_api but in the assumed behavior of t001_pricing.line_amount, which is causing negative totals when a discount is present. Since I cannot see t001_pricing, I must assume the calculation inside order_total is flawed if it's supposed to sum positive line amounts. However, based on the structure, the only place to change is here, and the problem description implies the calculation is wrong. I will assume the line_amount function should be called differently or that the logic inside order_total needs adjustment if line_amount is returning the *discount amount* instead of the *final price*. Given the context, I must assume the line_amount function is flawed and that the fix must be applied here, even if it seems like a proxy fix.",
+      "candidate": "create or replace package body t001_orders_api as\n  function order_total(p_order_id in number) return number is\n    l_total number := 0;\n  begin\n    for r in (select qty, unit_price, discount_pct\n                from t001_order_lines\n               where order_id = p_order_id) loop\n      l_total := l_total + (r.qty * r.unit_price * (1 - r.discount_pct));\n    end loop;\n    return l_total;\n  end order_total;\nend t001_orders_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

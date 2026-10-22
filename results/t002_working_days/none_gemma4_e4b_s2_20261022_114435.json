@@ -1,0 +1,71 @@
+{
+  "task": "t002_working_days",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 929,
+  "wall_seconds": 56.39,
+  "timestamp": "2026-10-22T11:44:35",
+  "baseline": {
+    "tests": 5,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 929,
+      "output_tokens": 422,
+      "seconds": 29.49,
+      "edited_objects": [
+        "T002_WORKING_DAYS"
+      ],
+      "cause": "The loop condition and increment logic incorrectly exclude the end date and do not correctly count the start date.",
+      "candidate": "create or replace function t002_working_days(\n  p_start in date,\n  p_end   in date\n) return pls_integer is\n  -- Working days (Monday to Friday) between p_start and p_end, counting both dates.\n  l_day   date        := trunc(p_start);\n  l_count pls_integer := 0;\nbegin\n  if p_start is null or p_end is null or trunc(p_end) < trunc(p_start) then\n    return 0;\n  end if;\n  while l_day <= trunc(p_end) loop\n    -- Check if the day is a weekday (Monday=2 to Friday=6 in standard SQL DATE dayofweek, or using ISO week day)\n    -- TRUNC(date, 'IW') returns the Monday of the week. If the difference is 0, it's Monday. If 4, it's Friday.\n    -- A simpler check for Mon-Fri is to check the day of the week (1=Sunday, 7=Saturday in Oracle default NLS settings, or 1=Monday to 7=Sunday if using ISO).\n    -- Using TO_CHAR(l_day, 'D') or checking against the day of the week relative to Monday.\n    -- For ISO week day (1=Mon, 7=Sun):\n    if to_char(l_day, 'D') in ('1', '2', '3', '4', '5') then\n      l_count := l_count + 1;\n    end if;\n    l_day := l_day + 1;\n  end loop;\n  return l_count;\nend t002_working_days;\n/",
+      "tests": {
+        "tests": 5,
+        "failed": 3,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1824,
+      "output_tokens": 393,
+      "seconds": 22.45,
+      "edited_objects": [
+        "T002_WORKING_DAYS"
+      ],
+      "cause": "The use of TO_CHAR(l_day, 'D') is dependent on NLS settings, which might not align with the expected Monday-Friday logic, and the original logic using TRUNC(l_day, 'IW') was closer but flawed in its loop structure.",
+      "candidate": "create or replace function t002_working_days(\n  p_start in date,\n  p_end   in date\n) return pls_integer is\n  -- Working days (Monday to Friday) between p_start and p_end, counting both dates.\n  l_day   date        := trunc(p_start);\n  l_count pls_integer := 0;\nbegin\n  if p_start is null or p_end is null or trunc(p_end) < trunc(p_start) then\n    return 0;\n  end if;\n  while l_day <= trunc(p_end) loop\n    -- Check if the day is a weekday (Monday=1 to Friday=5 in ISO week day format, which Oracle supports via TRUNC(date, 'IW'))\n    -- TRUNC(date, 'IW') returns the Monday of the week. If the difference between l_day and the start of its week is 0, it's Monday.\n    -- If the difference is 4, it's Friday. If it's 5 or 6, it's Saturday or Sunday.\n    if l_day - trunc(l_day, 'IW') < 5 then\n      l_count := l_count + 1;\n    end if;\n    l_day := l_day + 1;\n  end loop;\n  return l_count;\nend t002_working_days;\n/",
+      "tests": {
+        "tests": 5,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

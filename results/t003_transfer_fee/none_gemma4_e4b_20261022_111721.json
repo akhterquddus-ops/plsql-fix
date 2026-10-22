@@ -1,0 +1,80 @@
+{
+  "task": "t003_transfer_fee",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T003_ACCOUNTS_API"
+  ],
+  "buggy_objects": [
+    "T003_FEES"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "first_prompt_tokens": 823,
+  "wall_seconds": 55.44,
+  "timestamp": "2026-10-22T11:17:21",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 823,
+      "output_tokens": 320,
+      "seconds": 19.53,
+      "edited_objects": [
+        "T003_ACCOUNTS_API"
+      ],
+      "candidate": "create or replace package t003_accounts_api as\n  -- Moves money between two accounts.\n  procedure transfer(p_from in number, p_to in number, p_amount in number);\n  function balance_of(p_account in number) return number;\nend t003_accounts_api;\n/\ncreate or replace package body t003_accounts_api as\n  function balance_of(p_account in number) return number is\n    l_balance t003_accounts.balance%type;\n  begin\n    select balance into l_balance from t003_accounts where account_id = p_account;\n    return l_balance;\n  end balance_of;\n\n  procedure transfer(p_from in number, p_to in number, p_amount in number) is\n  begin\n    if p_amount is null or p_amount <= 0 then\n      raise_application_error(-20002, 'Amount must be positive');\n    end if;\n    if balance_of(p_from) < p_amount then\n      raise_application_error(-20001, 'Insufficient funds');\n    end if;\n    t003_ledger_pkg.post_transfer(p_from, p_to, p_amount);\n  end transfer;\nend t003_accounts_api;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1459,
+      "output_tokens": 320,
+      "seconds": 14.4,
+      "edited_objects": [
+        "T003_ACCOUNTS_API"
+      ],
+      "candidate": "create or replace package t003_accounts_api as\n  -- Moves money between two accounts.\n  procedure transfer(p_from in number, p_to in number, p_amount in number);\n  function balance_of(p_account in number) return number;\nend t003_accounts_api;\n/\ncreate or replace package body t003_accounts_api as\n  function balance_of(p_account in number) return number is\n    l_balance t003_accounts.balance%type;\n  begin\n    select balance into l_balance from t003_accounts where account_id = p_account;\n    return l_balance;\n  end balance_of;\n\n  procedure transfer(p_from in number, p_to in number, p_amount in number) is\n  begin\n    if p_amount is null or p_amount <= 0 then\n      raise_application_error(-20002, 'Amount must be positive');\n    end if;\n    if balance_of(p_from) < p_amount then\n      raise_application_error(-20001, 'Insufficient funds');\n    end if;\n    t003_ledger_pkg.post_transfer(p_from, p_to, p_amount);\n  end transfer;\nend t003_accounts_api;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2095,
+      "output_tokens": 320,
+      "seconds": 14.91,
+      "edited_objects": [
+        "T003_ACCOUNTS_API"
+      ],
+      "candidate": "create or replace package t003_accounts_api as\n  -- Moves money between two accounts.\n  procedure transfer(p_from in number, p_to in number, p_amount in number);\n  function balance_of(p_account in number) return number;\nend t003_accounts_api;\n/\ncreate or replace package body t003_accounts_api as\n  function balance_of(p_account in number) return number is\n    l_balance t003_accounts.balance%type;\n  begin\n    select balance into l_balance from t003_accounts where account_id = p_account;\n    return l_balance;\n  end balance_of;\n\n  procedure transfer(p_from in number, p_to in number, p_amount in number) is\n  begin\n    if p_amount is null or p_amount <= 0 then\n      raise_application_error(-20002, 'Amount must be positive');\n    end if;\n    if balance_of(p_from) < p_amount then\n      raise_application_error(-20001, 'Insufficient funds');\n    end if;\n    t003_ledger_pkg.post_transfer(p_from, p_to, p_amount);\n  end transfer;\nend t003_accounts_api;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "task": "t001_order_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T001_ORDERS_API",
+    "T001_ORDER_LINES",
+    "T001_PRICING"
+  ],
+  "buggy_objects": [
+    "T001_PRICING"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1069,
+  "wall_seconds": 37.34,
+  "timestamp": "2026-10-22T11:50:53",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1069,
+      "output_tokens": 141,
+      "seconds": 16.89,
+      "edited_objects": [
+        "T001_PRICING"
+      ],
+      "cause": "The line_amount function in T001_PRICING incorrectly calculates the discounted amount, leading to negative totals when discounts are applied.",
+      "candidate": "create or replace package body t001_pricing as\n  function line_amount(\n    p_qty          in number,\n    p_unit_price   in number,\n    p_discount_pct in number default 0\n  ) return number is\n  begin\n    return round(p_qty * p_unit_price * (1 - NVL(p_discount_pct, 0)), 2);\n  end line_amount;\n/",
+      "compile_errors": [
+        "PACKAGE BODY T001_PRICING line 9, col 18: PLS-00103: Encountered the symbol \"end-of-file\" when expecting one of the following:\n\n   begin end function pragma procedure"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1291,
+      "output_tokens": 150,
+      "seconds": 6.71,
+      "edited_objects": [
+        "T001_PRICING"
+      ],
+      "cause": "The line_amount function in T001_PRICING was missing the final 'end function' statement in the package body.",
+      "candidate": "create or replace package body t001_pricing as\n  function line_amount(\n    p_qty          in number,\n    p_unit_price   in number,\n    p_discount_pct in number default 0\n  ) return number is\n  begin\n    return round(p_qty * p_unit_price * (1 - NVL(p_discount_pct, 0)), 2);\n  end function line_amount;\nend t001_pricing;\n/",
+      "compile_errors": [
+        "PACKAGE BODY T001_PRICING line 9, col 16: PLS-00103: Encountered the symbol \"LINE_AMOUNT\" when expecting one of the following:\n\n   ;",
+        "PACKAGE BODY T001_PRICING line 10, col 17: PLS-00103: Encountered the symbol \"end-of-file\" when expecting one of the following:\n\n   end not pragma final instantiable persistable order\n   overriding static member constructor map"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1584,
+      "output_tokens": 148,
+      "seconds": 7.55,
+      "edited_objects": [
+        "T001_PRICING"
+      ],
+      "cause": "The line_amount function in T001_PRICING was incorrectly structured in the package body, causing compilation errors.",
+      "candidate": "create or replace package body t001_pricing as\n  function line_amount(\n    p_qty          in number,\n    p_unit_price   in number,\n    p_discount_pct in number default 0\n  ) return number is\n  begin\n    return round(p_qty * p_unit_price * (1 - NVL(p_discount_pct, 0)), 2);\n  end function line_amount;\nend t001_pricing;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

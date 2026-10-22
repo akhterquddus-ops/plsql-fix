@@ -1,0 +1,52 @@
+{
+  "task": "t001_order_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T001_ORDERS_API",
+    "T001_ORDER_LINES",
+    "T001_PRICING"
+  ],
+  "buggy_objects": [
+    "T001_PRICING"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T001_PRICING"
+  ],
+  "localized": true,
+  "first_prompt_tokens": 1019,
+  "wall_seconds": 33.77,
+  "timestamp": "2026-10-22T11:14:20",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1019,
+      "output_tokens": 462,
+      "seconds": 31.56,
+      "edited_objects": [
+        "T001_PRICING"
+      ],
+      "candidate": "create or replace package body t001_pricing as\n  function line_amount(\n    p_qty          in number,\n    p_unit_price   in number,\n    p_discount_pct in number default 0\n  ) return number is\n  begin\n    -- The original calculation was: p_qty * p_unit_price * (1 - nvl(p_discount_pct, 0))\n    -- If p_discount_pct is greater than 1 (e.g., 100% or more), (1 - p_discount_pct) becomes negative,\n    -- leading to negative line amounts, which matches the bug report.\n    -- Assuming discount_pct is a percentage (e.g., 10 for 10%), it should be divided by 100.\n    -- If it's already a decimal (e.g., 0.10 for 10%), the original formula is correct for positive discounts.\n    -- Given the failing test expects a positive result (188) when a discount is applied,\n    -- and the bug report mentions negative totals, the issue is likely how the discount is applied or interpreted.\n    -- If p_discount_pct is stored as a percentage (e.g., 10 for 10%), we must divide by 100.\n    -- If it's stored as a decimal (e.g., 0.10 for 10%), the original formula is correct, but the test case implies\n    -- that the discount calculation is resulting in a negative value when it shouldn't.\n    -- Let's assume p_discount_pct is stored as a percentage value (e.g., 10 for 10%) based on common database practices\n    -- when the calculation yields negative results unexpectedly.\n    return round(p_qty * p_unit_price * (1 - (nvl(p_discount_pct, 0) / 100)), 2);\n  end line_amount;\nend t001_pricing;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "task": "t003_transfer_fee",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T003_ACCOUNTS_API",
+    "T003_ACCOUNTS",
+    "T003_LEDGER_PKG",
+    "T003_FEES",
+    "T003_LEDGER"
+  ],
+  "buggy_objects": [
+    "T003_FEES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "first_prompt_tokens": 1584,
+  "wall_seconds": 54.94,
+  "timestamp": "2026-10-22T11:18:18",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1584,
+      "output_tokens": 253,
+      "seconds": 20.61,
+      "edited_objects": [
+        "T003_LEDGER_PKG"
+      ],
+      "candidate": "create or replace package body t003_ledger_pkg as\n  procedure add_entry(p_account in number, p_type in varchar2, p_amount in number) is\n  begin\n    insert into t003_ledger (account_id, entry_type, amount)\n    values (p_account, p_type, p_amount);\n\n    update t003_accounts\n       set balance = balance + case p_type when 'CREDIT' then p_amount else -p_amount end\n     where account_id = p_account;\n  end add_entry;\n\n  procedure post_transfer(p_from in number, p_to in number, p_amount in number) is\n    l_fee number := t003_fees.fee_for(p_amount);\n  begin\n    add_entry(p_from, 'DEBIT',  p_amount + l_fee);\n    add_entry(p_to,   'CREDIT', p_amount);\n  end post_transfer;\nend t003_ledger_pkg;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2153,
+      "output_tokens": 268,
+      "seconds": 13.33,
+      "edited_objects": [
+        "T003_LEDGER_PKG"
+      ],
+      "candidate": "create or replace package body t003_ledger_pkg as\n  procedure add_entry(p_account in number, p_type in varchar2, p_amount in number) is\n  begin\n    insert into t003_ledger (account_id, entry_type, amount)\n    values (p_account, p_type, p_amount);\n\n    update t003_accounts\n       set balance = balance + case p_type when 'CREDIT' then p_amount else -p_amount end\n     where account_id = p_account;\n  end add_entry;\n\n  procedure post_transfer(p_from in number, p_to in number, p_amount in number) is\n    l_fee number := t003_fees.fee_for(p_amount);\n  begin\n    add_entry(p_from, 'DEBIT',  p_amount);\n    add_entry(p_from, 'FEE',    l_fee);\n    add_entry(p_to,   'CREDIT', p_amount);\n  end post_transfer;\nend t003_ledger_pkg;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2737,
+      "output_tokens": 253,
+      "seconds": 14.29,
+      "edited_objects": [
+        "T003_LEDGER_PKG"
+      ],
+      "candidate": "create or replace package body t003_ledger_pkg as\n  procedure add_entry(p_account in number, p_type in varchar2, p_amount in number) is\n  begin\n    insert into t003_ledger (account_id, entry_type, amount)\n    values (p_account, p_type, p_amount);\n\n    update t003_accounts\n       set balance = balance + case p_type when 'CREDIT' then p_amount else -p_amount end\n     where account_id = p_account;\n  end add_entry;\n\n  procedure post_transfer(p_from in number, p_to in number, p_amount in number) is\n    l_fee number := t003_fees.fee_for(p_amount);\n  begin\n    add_entry(p_from, 'DEBIT',  p_amount + l_fee);\n    add_entry(p_to,   'CREDIT', p_amount);\n  end post_transfer;\nend t003_ledger_pkg;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

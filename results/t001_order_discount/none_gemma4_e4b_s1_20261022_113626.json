@@ -1,0 +1,83 @@
+{
+  "task": "t001_order_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T001_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "T001_PRICING"
+  ],
+  "buggy_object_in_context": false,
+  "solved": true,
+  "attempts_used": 3,
+  "fixed_objects": [
+    "T001_ORDERS_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 686,
+  "wall_seconds": 78.43,
+  "timestamp": "2026-10-22T11:36:26",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 686,
+      "output_tokens": 197,
+      "seconds": 14.29,
+      "edited_objects": [
+        "T001_ORDERS_API"
+      ],
+      "cause": "The line_amount function (presumably in t001_pricing) is incorrectly calculating the line amount when a discount is applied, leading to negative totals.",
+      "candidate": "create or replace package body t001_orders_api as\n  function order_total(p_order_id in number) return number is\n    l_total number := 0;\n  begin\n    for r in (select qty, unit_price, discount_pct\n                from t001_order_lines\n               where order_id = p_order_id) loop\n      l_total := l_total + t001_pricing.line_amount(r.qty, r.unit_price, r.discount_pct);\n    end loop;\n    return l_total;\n  end order_total;\nend t001_orders_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 936,
+      "output_tokens": 416,
+      "seconds": 20.83,
+      "edited_objects": [
+        "T001_ORDERS_API"
+      ],
+      "cause": "The bug is in the calculation of the line amount, which is called by order_total, and the provided code for order_total relies on it. Since the test output shows an actual value of -1000 when 188 was expected for a discounted order, the line_amount function must be incorrectly applying the discount or calculating the total. Assuming the line_amount function calculates (qty * unit_price) * (1 - discount_pct), and the test failure suggests a major calculation error, I must assume the issue is that the line_amount function is not being called correctly or that the logic within order_total is flawed if it were to handle discounts itself, but since it delegates, I must assume the delegation is correct and the error is in the external function. However, since I can only modify T001_ORDERS_API, and the failure is clearly related to discount application, I must assume that the line_amount function is flawed and that I need to replicate the correct logic here if I cannot change t001_pricing. Given the constraints, I will modify order_total to perform the calculation directly, assuming the intended calculation for a line item is: qty * unit_price * (1 - discount_pct).",
+      "candidate": "create or replace package body t001_orders_api as\n  function order_total(p_order_id in number) return number is\n    l_total number := 0;\n  begin\n    for r in (select qty, unit_price, discount_pct\n                from t001_order_lines\n               where order_id = p_order_id) loop\n      l_total := l_total + (r.qty * r.unit_price * (1 - r.discount_pct));\n    end loop;\n    return l_total;\n  end order_total;\nend t001_orders_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1569,
+      "output_tokens": 651,
+      "seconds": 36.77,
+      "edited_objects": [
+        "T001_ORDERS_API"
+      ],
+      "cause": "The calculation of the line amount in the previous attempt was incorrect for the specific test case, likely due to how the discount is applied or how the expected value (188) was derived. The original code called t001_pricing.line_amount, which is the source of the bug. Since I must fix it within this package, I must assume the correct calculation for the line amount is (qty * unit_price) - (qty * unit_price * discount_pct) if the discount is applied to the total price, or that the original function was intended to calculate the final price after discount. Given the failure, I will revert to calling the external function but assume the original implementation of t001_pricing.line_amount was flawed, and since I cannot fix it, I must assume the original structure was correct and the issue lies elsewhere, but since the previous attempt failed, I must assume the calculation (qty * unit_price * (1 - discount_pct)) is wrong for the test case. I will revert to the original structure, as it is the only way to signal that the bug is external, but since I must change something, I will assume the original call was correct and the issue is that the external function is returning a negative value when it shouldn't, and I will modify the loop to ensure the calculation is positive if the external function is somehow misbehaving, although this is a guess based on the constraints. Reverting to the original structure is the most logical step if the calculation logic is assumed correct, but since I must change it, I will assume the original call was correct and the issue is that the external function is not being used correctly, and I will use the direct calculation again, but this time I will assume the discount is applied as a subtraction from the gross amount, which is what the previous attempt did. Since that failed, I will assume the discount is applied to the unit price first, then multiplied by quantity, which is mathematically equivalent to the previous attempt. The only remaining possibility is that the discount percentage is being misinterpreted (e.g., if 10% discount means 0.10, but the function expects 10). I will assume the discount_pct is stored as a percentage (e.g., 10 for 10%) and needs to be divided by 100.",
+      "candidate": "create or replace package body t001_orders_api as\n  function order_total(p_order_id in number) return number is\n    l_total number := 0;\n  begin\n    for r in (select qty, unit_price, discount_pct\n                from t001_order_lines\n               where order_id = p_order_id) loop\n      l_total := l_total + (r.qty * r.unit_price * (1 - (r.discount_pct / 100)));\n    end loop;\n    return l_total;\n  end order_total;\nend t001_orders_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "task": "t003_transfer_fee",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T003_ACCOUNTS_API",
+    "T003_ACCOUNTS",
+    "T003_LEDGER_PKG",
+    "T003_FEES",
+    "T003_LEDGER"
+  ],
+  "buggy_objects": [
+    "T003_FEES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T003_FEES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1634,
+  "wall_seconds": 27.91,
+  "timestamp": "2026-10-22T11:49:00",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1634,
+      "output_tokens": 165,
+      "seconds": 25.69,
+      "edited_objects": [
+        "T003_FEES"
+      ],
+      "cause": "The fee calculation in T003_FEES is incorrectly applying the maximum fee cap after rounding, leading to incorrect fee amounts for small and normal transfers.",
+      "candidate": "create or replace package body t003_fees as\n  c_rate    constant number := 0.01;\n  c_min_fee constant number := 1;\n  c_max_fee constant number := 10;\n\n  function fee_for(p_amount in number) return number is\n  begin\n    return greatest(least(round(p_amount * c_rate, 2), c_max_fee), c_min_fee);\n  end fee_for;\nend t003_fees;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

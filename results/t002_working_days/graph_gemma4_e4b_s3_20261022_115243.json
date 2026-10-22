@@ -1,0 +1,54 @@
+{
+  "task": "t002_working_days",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 929,
+  "wall_seconds": 76.55,
+  "timestamp": "2026-10-22T11:52:43",
+  "baseline": {
+    "tests": 5,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 929,
+      "output_tokens": 1209,
+      "seconds": 74.31,
+      "edited_objects": [
+        "T002_WORKING_DAYS"
+      ],
+      "cause": "The loop condition and the logic for counting days are incorrect, failing to include the end date and incorrectly checking for weekdays.",
+      "candidate": "create or replace function t002_working_days(\n  p_start in date,\n  p_end   in date\n) return pls_integer is\n  -- Working days (Monday to Friday) between p_start and p_end, counting both dates.\n  l_day   date        := trunc(p_start);\n  l_count pls_integer := 0;\nbegin\n  if p_start is null or p_end is null or trunc(p_end) < trunc(p_start) then\n    return 0;\n  end if;\n  while l_day <= trunc(p_end) loop\n    -- Check if the day is a weekday (Monday=2 to Friday=6 in standard SQL DATE dayofweek, or using TO_CHAR)\n    -- In Oracle, TO_CHAR(date, 'D') returns the day of the week (1=Sunday, 7=Saturday, but this varies by NLS settings).\n    -- A more reliable way is to check if the day is Saturday (7) or Sunday (1) using TO_CHAR(date, 'DY').\n    -- Alternatively, using ISO week day (1=Monday, 7=Sunday) via TO_CHAR(date, 'D') or DATE 'YYYY-MM-DD' + 1 - TO_DATE('1900-01-01', 'YYYY-MM-DD')\n    -- The standard Oracle function for day of week where Monday=1 and Sunday=7 is often preferred, but let's use TO_CHAR for simplicity and robustness against NLS settings if possible.\n    -- For Oracle, TO_CHAR(date, 'D') returns the day of the week (1=Sunday, 7=Saturday) based on NLS settings.\n    -- Let's use the standard ISO day of week check: 1=Monday, 7=Sunday.\n    if to_char(l_day, 'D') not in ('1', '7') then -- Assuming NLS is set such that 'D' returns 1=Sunday, 7=Saturday. If Monday=1, then we check for 6 (Sat) and 7 (Sun).\n        -- A safer check for Monday-Friday (assuming NLS_TERRITORY or default behavior where Sunday=1, Saturday=7)\n        -- If we assume standard Oracle behavior where Sunday=1, Saturday=7:\n        if to_char(l_day, 'DY') not in ('SUN', 'SAT') then -- This relies on NLS settings for 'DY'\n            l_count := l_count + 1;\n        end if;\n    end if;\n\n    -- Reverting to a robust check based on ISO standard if available, or fixing the original logic's intent.\n    -- The original logic: l_day - trunc(l_day, 'IW') < 5\n    -- 'IW' is ISO Week. Truncating to 'IW' gives the Monday of that week.\n    -- If l_day is Monday, l_day - Monday = 0. If l_day is Friday, l_day - Monday = 4. If l_day is Saturday, l_day - Monday = 5. If l_day is Sunday, l_day - Monday = 6.\n    -- So, l_day - trunc(l_day, 'IW') < 5 correctly identifies Mon-Fri if the week starts on Monday (which 'IW' implies).\n    -- The original loop condition was `while l_day < trunc(p_end) loop`, which excluded p_end.\n    -- The original weekday check was: `if l_day - trunc(l_day, 'IW') < 5 then`\n    -- This check is actually correct for Mon-Fri if 'IW' is used, provided the loop runs correctly.\n\n    -- Let's fix the loop condition and re-verify the weekday check.\n    -- The original loop condition was `while l_day < trunc(p_end) loop`. It must be `<= trunc(p_end)`.\n    -- The original weekday check: `if l_day - trunc(l_day, 'IW') < 5 then`\n    -- If l_day is a Saturday, l_day - trunc(l_day, 'IW') = 5. This fails the `< 5` check, so Saturday is excluded.\n    -- If l_day is a Sunday, l_day - trunc(l_day, 'IW') = 6. This fails the `< 5` check, so Sunday is excluded.\n    -- This logic seems correct for Mon-Fri counting.\n\n    -- The only clear bug is the loop termination condition.\n    l_day := l_day + 1;\n  end loop;\n\n  -- Re-implementing with the fix:\n  l_day   := trunc(p_start);\n  l_count := 0;\n  while l_day <= trunc(p_end) loop\n    if l_day - trunc(l_day, 'IW') < 5 then\n      l_count := l_count + 1;\n    end if;\n    l_day := l_day + 1;\n  end loop;\n\n  return l_count;\nend t002_working_days;\n/",
+      "tests": {
+        "tests": 5,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "task": "t002_working_days",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 929,
+  "wall_seconds": 62.98,
+  "timestamp": "2026-10-22T11:45:41",
+  "baseline": {
+    "tests": 5,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 929,
+      "output_tokens": 280,
+      "seconds": 20.95,
+      "edited_objects": [
+        "T002_WORKING_DAYS"
+      ],
+      "cause": "The loop condition and the logic for counting days are incorrect, failing to include the end date and miscalculating weekdays.",
+      "candidate": "create or replace function t002_working_days(\n  p_start in date,\n  p_end   in date\n) return pls_integer is\n  -- Working days (Monday to Friday) between p_start and p_end, counting both dates.\n  l_day   date        := trunc(p_start);\n  l_count pls_integer := 0;\nbegin\n  if p_start is null or p_end is null or trunc(p_end) < trunc(p_start) then\n    return 0;\n  end if;\n  while l_day <= trunc(p_end) loop\n    -- Check if the day is Monday (1) through Friday (5)\n    if to_char(l_day, 'D') in ('1', '2', '3', '4', '5') then\n      l_count := l_count + 1;\n    end if;\n    l_day := l_day + 1;\n  end loop;\n  return l_count;\nend t002_working_days;\n/",
+      "tests": {
+        "tests": 5,
+        "failed": 3,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1682,
+      "output_tokens": 605,
+      "seconds": 37.6,
+      "edited_objects": [
+        "T002_WORKING_DAYS"
+      ],
+      "cause": "The use of TO_CHAR(l_day, 'D') is dependent on NLS settings, which can cause inconsistent results for day-of-week checks across different environments or when the expected day numbering (1=Sunday vs 1=Monday) differs from the test environment's default.",
+      "candidate": "create or replace function t002_working_days(\n  p_start in date,\n  p_end   in date\n) return pls_integer is\n  -- Working days (Monday to Friday) between p_start and p_end, counting both dates.\n  l_day   date        := trunc(p_start);\n  l_count pls_integer := 0;\nbegin\n  if p_start is null or p_end is null or trunc(p_end) < trunc(p_start) then\n    return 0;\n  end if;\n  while l_day <= trunc(p_end) loop\n    -- Check if the day is Monday (1) through Friday (5) using TO_CHAR(..., 'DY') or TO_CHAR(..., 'D') with specific NLS settings,\n    -- but the most robust way for Monday=1 to Friday=5 is using TO_CHAR(..., 'D') if NLS_TERRITORY is set to something like 'AMERICA' (where Sunday=1).\n    -- Since the tests imply Monday=1, we use TO_CHAR(l_day, 'D') and assume the test environment uses a locale where Monday=2 or Monday=1 depending on the specific Oracle version/setup,\n    -- but the standard way to check for Mon-Fri regardless of locale is using TO_CHAR(l_day, 'DY') or checking the day number relative to the start of the week if we knew the locale.\n    -- Given the failure pattern, the original logic using 'IW' was closer to the intent, but the loop structure was flawed.\n    -- Let's use TO_CHAR(l_day, 'D') and assume the test environment expects Monday=2 or Monday=1 based on its locale, but since the previous attempt failed, we must rely on the standard ISO week day numbering if possible, or explicitly check for Mon-Fri names.\n    -- For robustness against locale, we check the day name.\n    if upper(substr(to_char(l_day, 'DY'), 1, 3)) in ('MON', 'TUE', 'WED', 'THU', 'FRI') then\n      l_count := l_count + 1;\n    end if;\n    l_day := l_day + 1;\n  end loop;\n  return l_count;\nend t002_working_days;\n/",
+      "tests": {
+        "tests": 5,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

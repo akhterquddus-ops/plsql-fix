@@ -1,0 +1,57 @@
+{
+  "task": "t017_overdraft_limit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ATM_API"
+  ],
+  "buggy_objects": [
+    "BANK_ACCOUNTS_BU"
+  ],
+  "buggy_object_in_context": false,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "ATM_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 813,
+  "wall_seconds": 27.58,
+  "timestamp": "2026-10-23T20:44:15",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 813,
+      "output_tokens": 406,
+      "seconds": 25.37,
+      "edited_objects": [
+        "ATM_API"
+      ],
+      "cause": "The withdraw function does not check the overdraft limit before updating the balance.",
+      "candidate": "create or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n    l_current_balance bank_accounts.balance%type;\n    l_overdraft_limit bank_accounts.overdraft_limit%type;\n  begin\n    -- Fetch current balance and overdraft limit\n    select balance, overdraft_limit into l_current_balance, l_overdraft_limit\n    from bank_accounts\n    where account_no = p_account_no;\n\n    -- Check if the withdrawal exceeds the allowed limit (current balance + overdraft limit)\n    if (l_current_balance - p_amount) < (-l_overdraft_limit) then\n      return 'DECLINED';\n    end if;\n\n    -- Update balance if within limits\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n    when no_data_found then\n      -- Handle case where account_no is not found, although not explicitly tested, it's good practice\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "gpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 665,
+  "wall_seconds": 57.42,
+  "timestamp": "2026-10-23T20:20:12",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 665,
+      "output_tokens": 178,
+      "seconds": 15.49,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function incorrectly selects a single margin percentage from item_margins_v, leading to incorrect results when an item has multiple associated margins (e.g., from different deliveries).",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    -- Assuming the correct margin calculation for multiple deliveries should be an average or a specific aggregation.\n    -- Based on the failure, it seems the function should return an average margin percentage if multiple records exist for the SKU.\n    select avg(margin_pct) into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1131,
+      "output_tokens": 317,
+      "seconds": 22.45,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The average margin calculation is still incorrect for the specific business logic required by the tests, suggesting a weighted average or a different aggregation is needed, but since the underlying table structure and required calculation logic are unknown, I will assume the original function was intended to return the margin from the latest/most relevant delivery, and modify the query to handle multiple rows by selecting the maximum margin percentage if that resolves the issue, or if the test expects a specific value, I must assume the original query was flawed in how it selected the single value. Given the massive negative numbers, it suggests a multiplication or incorrect aggregation. I will revert to a single selection but use a common pattern to select the most relevant record, like the one with the highest margin, as a guess, or if the test expects a specific value, I must assume the original query was flawed in how it selected the single value. Let's try selecting the margin from the record with the highest margin percentage, as this is a common pattern when multiple records exist.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select margin_pct into l_margin from (\n        select margin_pct from item_margins_v where sku = p_sku order by margin_pct desc\n    ) where rownum = 1;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1736,
+      "output_tokens": 181,
+      "seconds": 12.85,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The function is fundamentally flawed because it is calling itself recursively (margin_pct into l_margin from item_margins_v where sku = p_sku), which is incorrect for retrieving data from a view/table. The fix is to assume the margin percentage is directly available in item_margins_v and that the required calculation is the average, as this is the most common fix for multi-delivery issues, despite previous attempts.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select avg(margin_pct) into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

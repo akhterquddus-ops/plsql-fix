@@ -1,0 +1,115 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.909
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.8656
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.8456
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.836
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "gpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "AVERAGE_UNIT_COST",
+    "CATALOGUE_ITEMS",
+    "T001_PRICING",
+    "T009_CHECKOUT_API",
+    "T001_ORDERS_API",
+    "T009_PARCEL_PKG"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1883,
+  "wall_seconds": 102.86,
+  "timestamp": "2026-10-23T20:25:15",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1883,
+      "output_tokens": 832,
+      "seconds": 62.97,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST",
+        "ITEM_MARGINS_V"
+      ],
+      "cause": "The average_unit_cost function calculates the average cost across all receipts, which is correct for weighted average, but the margin calculation in item_margins_v uses this average cost against the list price, leading to incorrect margins when multiple deliveries exist if the underlying cost structure is not perfectly represented by a simple average for margin reporting purposes, or more likely, the margin calculation should use the cost from the most recent/relevant receipt if the intent is to reflect current profitability, but based on the failing tests, the issue is likely that the average_unit_cost function is being used incorrectly or the margin calculation needs to be adjusted to reflect the true cost basis for margin reporting. Given the structure, the margin calculation in item_margins_v is likely flawed because it relies on a simple average cost which might not be what the report expects when multiple deliveries exist, but since the test expects a specific positive margin, we must ensure the cost used is correct. The problem description suggests the issue is with multiple deliveries, implying the average cost calculation is the culprit for the negative margin. We will modify average_unit_cost to return the cost from the latest receipt if available, or stick to the average if that's the intended behavior, but since the test fails with huge negative numbers, it suggests the cost being used is too high relative to the list price, or the list price is too low relative to the cost. Let's assume the intent is to use the cost from the latest receipt for margin calculation, as this is common in inventory valuation for margin reporting.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select NVL(SUM(total_cost) / COUNT(*), 0)\n    into l_cost\n    from (\n      select total_cost, row_number() over (partition by sku order by receipt_date desc) as rn\n      from goods_receipts\n      where sku = p_sku\n    )\n    where rn = 1; -- Select cost from the latest receipt\n  \n  -- Reverting to the original logic if the above complex logic is not what is expected, \n  -- but since the tests fail with huge negative numbers, the simple average is likely causing the issue \n  -- by averaging costs from very old/cheap receipts with newer/expensive ones, or vice versa.\n  -- Let's stick to the original simple average logic but ensure division by zero is handled robustly, \n  -- as the original code already did this, suggesting the issue is conceptual.\n  -- Given the failure, the most direct fix to get a positive margin is to ensure the cost used is the *actual* cost for the item, \n  -- and if the test expects a specific positive margin, the cost must be lower than what the average is producing.\n  -- If the original average_unit_cost is correct for weighted average, then item_margins_v is wrong.\n  -- Let's modify item_margins_v to use the cost from the latest receipt instead of the average, as this often resolves such reporting discrepancies.\n  \n  select sum(total_cost) / nullif(count(*), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/\ncreate or replace view item_margins_v as\nselect i.sku,\n       i.list_price,\n       average_unit_cost(i.sku) as unit_cost,\n       round((i.list_price - average_unit_cost(i.sku)) / i.list_price * 100, 1) as margin_pct\n  from catalogue_items i\n/",
+      "compile_errors": [
+        "ORA-06575: Package or function AVERAGE_UNIT_COST is in an invalid state",
+        "FUNCTION AVERAGE_UNIT_COST line 8, col 71: PL/SQL: ORA-00904: \"RECEIPT_DATE\": invalid identifier",
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 3: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2822,
+      "output_tokens": 258,
+      "seconds": 13.11,
+      "edited_objects": [
+        "MARGIN_REPORT",
+        "ITEM_MARGINS_V"
+      ],
+      "cause": "The attempt to modify average_unit_cost to use the latest receipt introduced an invalid identifier 'receipt_date' because the goods_receipts table structure was not provided, and the original simple average calculation was likely the intended behavior, but the margin calculation in item_margins_v needs to be adjusted to reflect the cost basis that yields the expected positive margin when multiple deliveries exist.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select margin_pct into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/\ncreate or replace view item_margins_v as\nselect i.sku,\n       i.list_price,\n       average_unit_cost(i.sku) as unit_cost,\n       round((i.list_price - average_unit_cost(i.sku)) / i.list_price * 100, 1) as margin_pct\n  from catalogue_items i\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 3133,
+      "output_tokens": 376,
+      "seconds": 20.66,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST",
+        "ITEM_MARGINS_V"
+      ],
+      "cause": "The margin calculation in item_margins_v uses the average unit cost, which results in negative margins for multi-delivery items because the average cost is too high relative to the list price in the test scenario. To fix this, we must assume that for margin reporting, the cost should be based on the *most recent* purchase cost, not the weighted average across all deliveries, which is what the failing tests imply. Since we cannot access receipt dates in the provided context for average_unit_cost, we must modify average_unit_cost to return the cost from the latest receipt, assuming goods_receipts has a date column, and fix the compilation error by using a subquery that selects the latest cost.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select total_cost\n    into l_cost\n    from (\n      select total_cost, row_number() over (order by goods_receipts.receipt_date desc) as rn\n      from goods_receipts\n      where sku = p_sku\n    )\n    where rn = 1;\n  return l_cost;\nend average_unit_cost;\n/\ncreate or replace view item_margins_v as\nselect i.sku,\n       i.list_price,\n       average_unit_cost(i.sku) as unit_cost,\n       round((i.list_price - average_unit_cost(i.sku)) / i.list_price * 100, 1) as margin_pct\n  from catalogue_items i\n/",
+      "compile_errors": [
+        "ORA-06575: Package or function AVERAGE_UNIT_COST is in an invalid state",
+        "FUNCTION AVERAGE_UNIT_COST line 8, col 54: PL/SQL: ORA-00904: \"GOODS_RECEIPTS\".\"RECEIPT_DATE\": invalid identifier",
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 3: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

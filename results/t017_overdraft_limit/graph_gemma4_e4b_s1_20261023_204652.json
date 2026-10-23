@@ -1,0 +1,59 @@
+{
+  "task": "t017_overdraft_limit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ATM_API",
+    "BANK_ACCOUNTS",
+    "BANK_ACCOUNTS_BU"
+  ],
+  "buggy_objects": [
+    "BANK_ACCOUNTS_BU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "ATM_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1019,
+  "wall_seconds": 35.12,
+  "timestamp": "2026-10-23T20:46:52",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1019,
+      "output_tokens": 437,
+      "seconds": 32.87,
+      "edited_objects": [
+        "ATM_API"
+      ],
+      "cause": "The withdraw function does not check the overdraft limit before updating the balance, relying solely on a trigger that might not be sufficient or correctly integrated with the function's logic flow for immediate feedback.",
+      "candidate": "create or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    l_current_balance bank_accounts.balance%type;\n    l_overdraft_limit bank_accounts.overdraft_limit%type;\n    l_new_balance bank_accounts.balance%type;\n  begin\n    -- Get current balance and overdraft limit\n    select balance, overdraft_limit into l_current_balance, l_overdraft_limit\n    from bank_accounts\n    where account_no = p_account_no;\n\n    -- Calculate potential new balance\n    l_new_balance := l_current_balance - p_amount;\n\n    -- Check if the withdrawal exceeds the overdraft limit\n    -- The limit check is: new_balance must be >= -overdraft_limit\n    if l_new_balance < (-l_overdraft_limit) then\n      return 'DECLINED';\n    end if;\n\n    -- If within limits, perform the update\n    update bank_accounts\n       set balance = l_new_balance\n     where account_no = p_account_no;\n\n    return 'OK';\n  exception\n    when no_data_found then\n      -- Handle case where account does not exist, though not explicitly tested, it's good practice\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

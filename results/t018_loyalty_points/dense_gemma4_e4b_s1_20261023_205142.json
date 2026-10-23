@@ -1,0 +1,114 @@
+{
+  "task": "t018_loyalty_points",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "POINTS_RULES",
+      "task": "t018_loyalty_points",
+      "score": 0.7093
+    },
+    {
+      "name": "LOYALTY_PURCHASES_AI",
+      "task": "t018_loyalty_points",
+      "score": 0.6809
+    },
+    {
+      "name": "T010_LOANS_API",
+      "task": "t010_loan_payment",
+      "score": 0.6323
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6301
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "LOYALTY_API",
+    "POINTS_RULES",
+    "LOYALTY_PURCHASES_AI",
+    "T010_LOANS_API",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "POINTS_RULES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1493,
+  "wall_seconds": 63.61,
+  "timestamp": "2026-10-23T20:51:42",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1493,
+      "output_tokens": 289,
+      "seconds": 28.65,
+      "edited_objects": [
+        "LOYALTY_API"
+      ],
+      "cause": "The loyalty_api.add_purchase function incorrectly retrieves the existing points balance instead of calculating and returning the new balance after the purchase.",
+      "candidate": "create or replace package body loyalty_api as\n  function add_purchase(p_member_id in number, p_amount in number) return number is\n    l_points_earned number;\n    l_current_points loyalty_members.points%type;\n    l_new_points loyalty_members.points%type;\n  begin\n    insert into loyalty_purchases (member_id, amount) values (p_member_id, p_amount);\n\n    -- Calculate points earned using points_rules package\n    l_points_earned := points_rules.points_for(p_amount);\n\n    -- Get current points\n    select points into l_current_points from loyalty_members where member_id = p_member_id;\n\n    -- Update points balance\n    update loyalty_members\n      set points = points + l_points_earned\n      where member_id = p_member_id;\n\n    -- Return new points balance\n    l_new_points := l_current_points + l_points_earned;\n    return l_new_points;\n  end add_purchase;\nend loyalty_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 3,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2188,
+      "output_tokens": 120,
+      "seconds": 10.81,
+      "edited_objects": [
+        "POINTS_RULES"
+      ],
+      "cause": "The points_rules.points_for function is incorrectly implemented, calculating points as floor(amount / 10) instead of 1 point per full 100 spent (floor(amount / 100)).",
+      "candidate": "create or replace package body points_rules as\n  function points_for(p_amount in number) return number is\n  begin\n    return floor(nvl(p_amount, 0) / 100);\n  end points_for;\nend points_rules;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2622,
+      "output_tokens": 314,
+      "seconds": 17.46,
+      "edited_objects": [
+        "LOYALTY_API"
+      ],
+      "cause": "The loyalty_api.add_purchase function is not correctly returning the points earned, but rather the total points after the purchase, and the tests expect only the points earned for that specific purchase, or the test setup is flawed regarding initial points.",
+      "candidate": "create or replace package body loyalty_api as\n  function add_purchase(p_member_id in number, p_amount in number) return number is\n    l_points_earned number;\n    l_current_points loyalty_members.points%type;\n    l_new_points loyalty_members.points%type;\n  begin\n    insert into loyalty_purchases (member_id, amount) values (p_member_id, p_amount);\n\n    -- Calculate points earned using points_rules package\n    l_points_earned := points_rules.points_for(p_amount);\n\n    -- Get current points\n    select points into l_current_points from loyalty_members where member_id = p_member_id;\n\n    -- Update points balance\n    update loyalty_members\n      set points = points + l_points_earned\n      where member_id = p_member_id;\n\n    -- Return points earned, as suggested by the failing test expectations (e.g., purchase of 250 earns 2 points)\n    return l_points_earned;\n  end add_purchase;\nend loyalty_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

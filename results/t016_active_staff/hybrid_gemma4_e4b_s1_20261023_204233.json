@@ -1,0 +1,82 @@
+{
+  "task": "t016_active_staff",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "ACTIVE_STAFF_V",
+      "task": "t016_active_staff",
+      "score": 1.0
+    },
+    {
+      "name": "T002_WORKING_DAYS",
+      "task": "t002_working_days",
+      "score": 0.9039
+    },
+    {
+      "name": "STAFF",
+      "task": "t016_active_staff",
+      "score": 0.8592
+    },
+    {
+      "name": "T007_REPORTS_API",
+      "task": "t007_region_summary",
+      "score": 0.8187
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "HEADCOUNT_REPORT",
+    "ACTIVE_STAFF_V",
+    "T002_WORKING_DAYS",
+    "STAFF",
+    "T007_REPORTS_API"
+  ],
+  "buggy_objects": [
+    "ACTIVE_STAFF_V"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "ACTIVE_STAFF_V"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1260,
+  "wall_seconds": 18.38,
+  "timestamp": "2026-10-23T20:42:33",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1260,
+      "output_tokens": 100,
+      "seconds": 16.16,
+      "edited_objects": [
+        "ACTIVE_STAFF_V"
+      ],
+      "cause": "The view ACTIVE_STAFF_V incorrectly filters out staff whose end_date is exactly today, leading to undercounting.",
+      "candidate": "create or replace view active_staff_v as\n-- Staff still employed: no end date yet, or an end date today or later.\nselect staff_id, full_name, dept_code\n  from staff\n where end_date >= trunc(sysdate) or end_date is null\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

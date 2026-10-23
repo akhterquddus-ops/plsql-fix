@@ -1,0 +1,107 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "ITEM_MARGINS_V",
+      "task": "t014_item_margin",
+      "score": 0.6338
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.5935
+    },
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.5926
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.5873
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "gpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "T009_PARCEL_PKG",
+    "T001_PRICING",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1446,
+  "wall_seconds": 40.1,
+  "timestamp": "2026-10-23T20:21:16",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1446,
+      "output_tokens": 103,
+      "seconds": 21.08,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function incorrectly calls margin_pct recursively instead of selecting from the view.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select margin_pct into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end margin_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY MARGIN_REPORT line 7, col 7: PLS-00113: END identifier 'MARGIN_REPORT' must match 'MARGIN_PCT' at line 2, column 12",
+        "PACKAGE BODY MARGIN_REPORT line 7, col 20: PLS-00103: Encountered the symbol \"end-of-file\" when expecting one of the following:\n\n   begin end function pragma procedure"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1673,
+      "output_tokens": 110,
+      "seconds": 6.31,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function incorrectly calls margin_pct recursively instead of selecting from the view.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select margin_pct into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end function margin_pct;\nend margin_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY MARGIN_REPORT line 7, col 16: PLS-00103: Encountered the symbol \"MARGIN_PCT\" when expecting one of the following:\n\n   ;",
+        "PACKAGE BODY MARGIN_REPORT line 8, col 18: PLS-00103: Encountered the symbol \"end-of-file\" when expecting one of the following:\n\n   end not pragma final instantiable persistable order\n   overriding static member constructor map"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1917,
+      "output_tokens": 110,
+      "seconds": 6.53,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function incorrectly calls margin_pct recursively instead of selecting from the view.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select margin_pct into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end function margin_pct;\nend margin_report;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

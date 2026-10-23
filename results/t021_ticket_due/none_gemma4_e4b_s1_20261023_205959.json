@@ -1,0 +1,74 @@
+{
+  "task": "t021_ticket_due",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "TICKET_API"
+  ],
+  "buggy_objects": [
+    "SLA_POLICY"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 726,
+  "wall_seconds": 25.25,
+  "timestamp": "2026-10-23T20:59:59",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 726,
+      "output_tokens": 108,
+      "seconds": 10.6,
+      "edited_objects": [
+        "TICKET_API"
+      ],
+      "cause": "The SLA policy calculation in due_at function incorrectly divides the hours by 24, leading to incorrect due dates.",
+      "candidate": "create or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n  begin\n    return p_opened + sla_policy.hours_for(p_priority) / 24;\n  end due_at;\nend ticket_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 887,
+      "output_tokens": 108,
+      "seconds": 4.27,
+      "edited_objects": [
+        "TICKET_API"
+      ],
+      "cause": "The SLA policy calculation in due_at function incorrectly divides the hours by 24, leading to incorrect due dates.",
+      "candidate": "create or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n  begin\n    return p_opened + sla_policy.hours_for(p_priority) / 24;\n  end due_at;\nend ticket_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1048,
+      "output_tokens": 108,
+      "seconds": 4.21,
+      "edited_objects": [
+        "TICKET_API"
+      ],
+      "cause": "The SLA policy calculation in due_at function incorrectly divides the hours by 24, leading to incorrect due dates.",
+      "candidate": "create or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n  begin\n    return p_opened + sla_policy.hours_for(p_priority) / 24;\n  end due_at;\nend ticket_api;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

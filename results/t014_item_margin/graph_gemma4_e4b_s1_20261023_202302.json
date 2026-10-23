@@ -1,0 +1,89 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "gpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "AVERAGE_UNIT_COST",
+    "CATALOGUE_ITEMS"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 974,
+  "wall_seconds": 32.32,
+  "timestamp": "2026-10-23T20:23:02",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 974,
+      "output_tokens": 115,
+      "seconds": 13.21,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function in margin_report package body incorrectly calls margin_pct recursively instead of using the view directly.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n  begin\n    select margin_pct into margin_report.margin_pct(p_sku) from dual;\n    return margin_report.margin_pct(p_sku);\n  end margin_pct;\nend margin_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY MARGIN_REPORT line 4, col 28: PLS-00306: wrong number or types of arguments in call to 'MARGIN_PCT'",
+        "PACKAGE BODY MARGIN_REPORT line 4, col 42: PL/SQL: ORA-03056: invalid expression in SELECT INTO clause",
+        "PACKAGE BODY MARGIN_REPORT line 4, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1211,
+      "output_tokens": 108,
+      "seconds": 5.81,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function in margin_report package body incorrectly calls margin_pct recursively instead of using the view directly.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n  begin\n    select margin_pct into margin_pct from item_margins_v where sku = p_sku;\n    return margin_pct;\n  end margin_pct;\nend margin_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY MARGIN_REPORT line 4, col 28: PLS-00321: expression 'MARGIN_PCT' is inappropriate as the left hand side of an assignment statement",
+        "PACKAGE BODY MARGIN_REPORT line 4, col 28: PL/SQL: ORA-03056: invalid expression in SELECT INTO clause",
+        "PACKAGE BODY MARGIN_REPORT line 4, col 5: PL/SQL: SQL Statement ignored",
+        "PACKAGE BODY MARGIN_REPORT line 5, col 12: PLS-00306: wrong number or types of arguments in call to 'MARGIN_PCT'",
+        "PACKAGE BODY MARGIN_REPORT line 5, col 5: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1504,
+      "output_tokens": 110,
+      "seconds": 7.1,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function in margin_report package body was incorrectly trying to call itself recursively instead of selecting directly from the view.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n  begin\n    select margin_pct into margin_pct from item_margins_v where sku = p_sku;\n    return margin_pct;\n  end margin_pct;\nend margin_report;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 665,
+  "wall_seconds": 81.96,
+  "timestamp": "2026-10-23T21:14:47",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 665,
+      "output_tokens": 663,
+      "seconds": 42.97,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function incorrectly uses a subquery that seems to return a single, potentially incorrect, margin value instead of calculating the weighted average margin across deliveries.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_total_margin number := 0;\n    l_total_revenue number := 0;\n    l_total_cost number := 0;\n    l_delivery_count number := 0;\n  begin\n    -- Assuming item_margins_v or related tables contain delivery-specific cost/revenue data\n    -- Since the original code only queried item_margins_v, and the bug suggests aggregation across deliveries,\n    -- I must assume the necessary data (cost, revenue, quantity) is available or can be derived from a structure that allows aggregation.\n    -- Given the limited context, I will assume there is a way to aggregate the margin calculation across all deliveries for the SKU.\n    -- A common pattern for this is to calculate weighted average margin: SUM(Margin_per_unit * Quantity) / SUM(Quantity)\n    -- Since I don't have the schema for item_margins_v, I must modify the query to perform an aggregation that reflects the weighted average margin.\n    -- I will assume item_margins_v contains columns like 'cost', 'revenue', and 'quantity' per delivery/entry.\n\n    select\n        sum( (revenue - cost) * quantity ) / sum(revenue * quantity)\n    into l_total_margin\n    from item_margins_v\n    where sku = p_sku;\n\n    -- If the above calculation is not possible due to schema constraints, and the original intent was to average,\n    -- the original query was fundamentally flawed for multi-delivery items.\n    -- If the test expects a simple average of pre-calculated margins, the query should be:\n    /*\n    select avg(margin_pct_per_delivery)\n    into l_total_margin\n    from item_margins_v\n    where sku = p_sku;\n    */\n\n    -- Based on the failure (Actual: -1050 vs Expected: 42.5), the calculation is definitely wrong.\n    -- I will implement the weighted average margin calculation, which is standard for this type of report.\n    -- If item_margins_v only contains a single margin percentage, the original code was correct for single delivery,\n    -- but for multiple deliveries, it needs aggregation.\n\n    -- Reverting to the most likely fix: calculating the weighted average margin based on quantity sold/purchased.\n    -- Assuming item_margins_v has columns: sku, quantity, cost, revenue.\n    select\n        sum((revenue - cost) * quantity) / sum(revenue * quantity)\n    into l_total_margin\n    from item_margins_v\n    where sku = p_sku;\n\n    return l_total_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY MARGIN_REPORT line 17, col 60: PL/SQL: ORA-00904: \"QUANTITY\": invalid identifier",
+        "PACKAGE BODY MARGIN_REPORT line 16, col 5: PL/SQL: SQL Statement ignored",
+        "PACKAGE BODY MARGIN_REPORT line 40, col 58: PL/SQL: ORA-00904: \"QUANTITY\": invalid identifier",
+        "PACKAGE BODY MARGIN_REPORT line 39, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1472,
+      "output_tokens": 197,
+      "seconds": 11.99,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The previous attempt assumed columns (quantity, cost, revenue) existed in item_margins_v, leading to ORA-00904 errors. The original code only selected 'margin_pct' from item_margins_v, suggesting that column holds the margin percentage per delivery/entry. To fix the multi-delivery issue, we must average these percentages.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    -- For multiple deliveries, the report likely requires the average margin percentage across all entries for that SKU.\n    select avg(margin_pct)\n    into l_margin\n    from item_margins_v\n    where sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1956,
+      "output_tokens": 328,
+      "seconds": 20.62,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "Averaging the margin percentage across deliveries is incorrect for calculating the overall margin when quantities differ across deliveries; a weighted average based on quantity is required, implying item_margins_v must contain quantity information.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_total_weighted_margin number := 0;\n    l_total_quantity number := 0;\n  begin\n    -- To calculate the true margin for multiple deliveries, we must use a weighted average:\n    -- Sum(Margin_per_unit * Quantity) / Sum(Quantity)\n    -- Assuming item_margins_v contains 'margin_pct' (the percentage), 'quantity', and 'list_price' (or cost/revenue to derive margin).\n    -- Since the original function returned a percentage, we assume 'margin_pct' is the percentage value (e.g., 0.425 for 42.5%).\n    -- We must assume item_margins_v has 'quantity' and that the margin percentage stored is the actual margin percentage (e.g., 0.425).\n\n    select\n        sum(margin_pct * quantity) / sum(quantity)\n    into l_total_weighted_margin\n    from item_margins_v\n    where sku = p_sku;\n\n    return l_total_weighted_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY MARGIN_REPORT line 13, col 42: PL/SQL: ORA-00904: \"QUANTITY\": invalid identifier",
+        "PACKAGE BODY MARGIN_REPORT line 12, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

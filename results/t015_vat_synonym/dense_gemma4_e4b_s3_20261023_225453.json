@@ -1,0 +1,82 @@
+{
+  "task": "t015_vat_synonym",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "VAT_RATES_2026",
+      "task": "t015_vat_synonym",
+      "score": 0.7268
+    },
+    {
+      "name": "VAT_RATES_2025",
+      "task": "t015_vat_synonym",
+      "score": 0.7234
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.6409
+    },
+    {
+      "name": "T008_INVOICE_PKG",
+      "task": "t008_overpayment",
+      "score": 0.6149
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "INVOICE_TAX",
+    "VAT_RATES_2026",
+    "VAT_RATES_2025",
+    "T008_PAYMENTS_API",
+    "T008_INVOICE_PKG"
+  ],
+  "buggy_objects": [
+    "VAT_RATES"
+  ],
+  "buggy_object_in_context": false,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "INVOICE_TAX"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1667,
+  "wall_seconds": 29.27,
+  "timestamp": "2026-10-23T22:54:53",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1667,
+      "output_tokens": 179,
+      "seconds": 27.06,
+      "edited_objects": [
+        "INVOICE_TAX"
+      ],
+      "cause": "invoice_tax.vat_for uses a hardcoded reference to vat_rates which is not available or not the correct one for current rates.",
+      "candidate": "create or replace package invoice_tax as\n  -- VAT for an invoice line, using the current VAT rates.\n  function vat_for(p_amount in number, p_region in varchar2) return number;\nend invoice_tax;\n/\ncreate or replace package body invoice_tax as\n  function vat_for(p_amount in number, p_region in varchar2) return number is\n  begin\n    return round(p_amount * vat_rates_2026.rate_for(p_region) / 100, 2);\n  end vat_for;\nend invoice_tax;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

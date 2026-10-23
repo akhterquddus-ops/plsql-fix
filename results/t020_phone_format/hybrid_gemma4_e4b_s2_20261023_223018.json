@@ -1,0 +1,82 @@
+{
+  "task": "t020_phone_format",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T007_REPORTS_API",
+      "task": "t007_region_summary",
+      "score": 0.9379
+    },
+    {
+      "name": "T011_FULL_NAME",
+      "task": "t011_full_name",
+      "score": 0.8903
+    },
+    {
+      "name": "T007_CUSTOMER_Q",
+      "task": "t007_region_summary",
+      "score": 0.8639
+    },
+    {
+      "name": "T002_WORKING_DAYS",
+      "task": "t002_working_days",
+      "score": 0.8423
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "FORMAT_PHONE",
+    "T007_REPORTS_API",
+    "T011_FULL_NAME",
+    "T007_CUSTOMER_Q",
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_objects": [
+    "FORMAT_PHONE"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "FORMAT_PHONE"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1617,
+  "wall_seconds": 28.5,
+  "timestamp": "2026-10-23T22:30:18",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1617,
+      "output_tokens": 179,
+      "seconds": 26.28,
+      "edited_objects": [
+        "FORMAT_PHONE"
+      ],
+      "cause": "The format_phone function incorrectly appends the remaining digits without removing the leading zero if the input is 11 digits long.",
+      "candidate": "create or replace function format_phone(p_number in varchar2) return varchar2 is\n  -- Formats an 11-digit mobile number as 0300-1234567; other input is returned unchanged.\n  l_digits varchar2(40) := regexp_replace(p_number, '[^0-9]', '');\nbegin\n  if length(l_digits) = 11 then\n    return substr(l_digits, 1, 4) || '-' || substr(l_digits, 5);\n  end if;\n  return p_number;\nend format_phone;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

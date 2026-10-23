@@ -1,0 +1,88 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 664,
+  "wall_seconds": 38.96,
+  "timestamp": "2026-10-23T22:47:24",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 664,
+      "output_tokens": 130,
+      "seconds": 12.06,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function incorrectly selects a single margin percentage from item_margins_v, failing to aggregate or calculate the correct margin when an item has multiple entries (deliveries).",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select AVG(margin_pct) into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1082,
+      "output_tokens": 129,
+      "seconds": 9.13,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The AVG aggregation in margin_pct is not calculating the required weighted or average margin correctly, leading to incorrect results for multi-delivery items.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select SUM(margin_pct * quantity) / SUM(quantity) into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY MARGIN_REPORT line 5, col 45: PL/SQL: ORA-00904: \"QUANTITY\": invalid identifier",
+        "PACKAGE BODY MARGIN_REPORT line 5, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1294,
+      "output_tokens": 212,
+      "seconds": 11.23,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The column 'quantity' is not available in the view 'item_margins_v', so the weighted average calculation must be adjusted based on available columns or assumptions.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    -- Assuming that if the test expects a specific average, and we cannot use quantity,\n    -- we must revert to a simple average if the underlying data structure doesn't support weighting,\n    -- or assume the view structure is simpler than implied by the previous attempt.\n    -- Given the failure pattern, a simple average of the stored margin_pct seems to be the intended fix if weighting is impossible.\n    select AVG(margin_pct) into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

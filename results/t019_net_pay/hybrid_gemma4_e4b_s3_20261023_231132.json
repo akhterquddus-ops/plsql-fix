@@ -1,0 +1,82 @@
+{
+  "task": "t019_net_pay",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "DEDUCTIONS",
+      "task": "t019_net_pay",
+      "score": 0.994
+    },
+    {
+      "name": "PENSION_RULES",
+      "task": "t019_net_pay",
+      "score": 0.9422
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.89
+    },
+    {
+      "name": "ATM_API",
+      "task": "t017_overdraft_limit",
+      "score": 0.7923
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "PAYROLL_API",
+    "DEDUCTIONS",
+    "PENSION_RULES",
+    "T008_PAYMENTS_API",
+    "ATM_API"
+  ],
+  "buggy_objects": [
+    "PENSION_RULES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "PENSION_RULES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1595,
+  "wall_seconds": 23.17,
+  "timestamp": "2026-10-23T23:11:32",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1595,
+      "output_tokens": 121,
+      "seconds": 20.95,
+      "edited_objects": [
+        "PENSION_RULES"
+      ],
+      "cause": "The pension contribution calculation in pension_rules incorrectly uses GREATEST instead of LEAST to enforce the cap.",
+      "candidate": "create or replace package body pension_rules as\n  c_rate constant number := 0.05;\n  c_cap  constant number := 4000;\n\n  function contribution(p_gross in number) return number is\n  begin\n    return round(least(p_gross * c_rate, c_cap), 2);\n  end contribution;\nend pension_rules;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

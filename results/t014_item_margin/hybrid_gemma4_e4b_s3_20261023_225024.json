@@ -1,0 +1,109 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "ITEM_MARGINS_V",
+      "task": "t014_item_margin",
+      "score": 1.0
+    },
+    {
+      "name": "AVERAGE_UNIT_COST",
+      "task": "t014_item_margin",
+      "score": 0.6842
+    },
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.6781
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6466
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "AVERAGE_UNIT_COST",
+    "T001_PRICING",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1354,
+  "wall_seconds": 36.68,
+  "timestamp": "2026-10-23T22:50:24",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1354,
+      "output_tokens": 119,
+      "seconds": 19.8,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function incorrectly calls margin_pct recursively instead of using the view directly.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n  begin\n    select margin_pct into margin_report.margin_pct(p_sku) from item_margins_v where sku = p_sku;\n    return margin_report.margin_pct(p_sku);\n  end margin_pct;\nend margin_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY MARGIN_REPORT line 4, col 28: PLS-00306: wrong number or types of arguments in call to 'MARGIN_PCT'",
+        "PACKAGE BODY MARGIN_REPORT line 4, col 42: PL/SQL: ORA-03056: invalid expression in SELECT INTO clause",
+        "PACKAGE BODY MARGIN_REPORT line 4, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1595,
+      "output_tokens": 119,
+      "seconds": 6.42,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function incorrectly calls margin_pct recursively instead of using the view directly.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n  begin\n    select margin_pct into margin_report.margin_pct(p_sku) from item_margins_v where sku = p_sku;\n    return margin_report.margin_pct(p_sku);\n  end margin_pct;\nend margin_report;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1767,
+      "output_tokens": 98,
+      "seconds": 4.28,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function incorrectly calls margin_pct recursively instead of using the view directly.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n  begin\n    select margin_pct from item_margins_v where sku = p_sku;\n    return margin_pct;\n  end margin_pct;\nend margin_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY MARGIN_REPORT line 4, col 5: PLS-00428: an INTO clause is expected in this SELECT statement",
+        "PACKAGE BODY MARGIN_REPORT line 5, col 12: PLS-00306: wrong number or types of arguments in call to 'MARGIN_PCT'",
+        "PACKAGE BODY MARGIN_REPORT line 5, col 5: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

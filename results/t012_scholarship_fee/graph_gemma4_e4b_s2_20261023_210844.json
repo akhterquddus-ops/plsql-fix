@@ -1,0 +1,60 @@
+{
+  "task": "t012_scholarship_fee",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ENROLMENT_API",
+    "COURSE_ENROLMENTS",
+    "COURSE_ENROLMENTS_BI",
+    "COURSES"
+  ],
+  "buggy_objects": [
+    "COURSE_ENROLMENTS_BI"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "COURSE_ENROLMENTS_BI"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1120,
+  "wall_seconds": 19.19,
+  "timestamp": "2026-10-23T21:08:44",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1120,
+      "output_tokens": 154,
+      "seconds": 17.0,
+      "edited_objects": [
+        "COURSE_ENROLMENTS_BI"
+      ],
+      "cause": "The trigger calculates the fee due by subtracting the scholarship percentage directly from the course fee, instead of calculating the discounted fee.",
+      "candidate": "create or replace trigger course_enrolments_bi\nbefore insert on course_enrolments\nfor each row\ndeclare\n  l_fee courses.fee%type;\nbegin\n  -- Fee the student pays after their scholarship (a percentage of the course fee).\n  select fee into l_fee from courses where course_code = :new.course_code;\n  :new.fee_due := l_fee * (1 - (:new.scholarship_pct / 100));\nend course_enrolments_bi;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "ITEM_MARGINS_V",
+      "task": "t014_item_margin",
+      "score": 0.6328
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.5984
+    },
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.595
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.5913
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "T009_PARCEL_PKG",
+    "T001_PRICING",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1446,
+  "wall_seconds": 103.75,
+  "timestamp": "2026-10-23T22:49:27",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1446,
+      "output_tokens": 757,
+      "seconds": 55.73,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function in margin_report package body incorrectly selects margin_pct from item_margins_v, which calculates margin based on a single average unit cost, leading to incorrect results when an item has multiple purchase records contributing to the average cost.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n    l_list_price number;\n    l_total_cost number;\n    l_total_qty number;\n  begin\n    -- Recalculate margin based on the actual total cost and total quantity across all deliveries for the SKU\n    select i.list_price, sum(oi.unit_cost * oi.qty)\n      into l_list_price, l_total_cost\n      from catalogue_items i\n      join t009_order_items oi on i.sku = oi.sku -- Assuming t009_order_items contains cost information or we need to join to a purchase history table.\n                                                    -- Given the context and the failure, we must calculate the true weighted average cost.\n                                                    -- Since we don't have the full purchase history, we must assume item_margins_v's average_unit_cost is what we need to use, but the original implementation was flawed by just selecting the pre-calculated margin_pct.\n                                                    -- The fix is to recalculate the margin percentage using the list price and the average unit cost derived from the view, but we must ensure the view calculation is correct or override it.\n                                                    -- The view calculates margin_pct based on average_unit_cost(i.sku). If this function is called, it implies the margin calculation should be done here using the underlying data if the view is insufficient.\n\n    -- Reverting to the structure of the view but ensuring we get the correct components if the view is not sufficient for multi-delivery logic.\n    -- Since the view already calculates margin_pct using average_unit_cost(i.sku), the issue is likely that the function is just returning this pre-calculated value, which might be based on an outdated or incomplete average cost calculation if the view is not dynamically updated correctly for all scenarios.\n    -- The most direct fix, assuming the view's average_unit_cost is the intended basis, is to ensure we are using the components to calculate it here, mimicking the view's logic, but this is redundant if the view is correct.\n\n    -- Let's assume the bug is that the function should calculate the margin based on the list price and the average unit cost derived from the view, instead of just selecting the pre-calculated margin_pct.\n    select i.list_price, average_unit_cost(i.sku)\n      into l_list_price, l_total_cost -- Reusing l_total_cost for average unit cost\n      from catalogue_items i\n      where i.sku = p_sku;\n\n    if l_list_price is not null and l_total_cost is not null and l_total_cost > 0 then\n      l_margin := round((l_list_price - l_total_cost) / l_list_price * 100, 1);\n    else\n      l_margin := 0; -- Handle case where data is missing\n    end if;\n\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY MARGIN_REPORT line 23, col 5: PL/SQL: ORA-03048: SQL reserved word 'SELECT' is not syntactically valid following '...<identifier>'",
+        "PACKAGE BODY MARGIN_REPORT line 9, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2298,
+      "output_tokens": 311,
+      "seconds": 14.17,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function in margin_report package body attempted to use SELECT statements directly within the function body without proper context or structure, leading to compilation errors.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n    l_list_price number;\n    l_unit_cost number;\n  begin\n    -- Fetch list price and average unit cost from the view, mimicking the logic in item_margins_v\n    select i.list_price, average_unit_cost(i.sku)\n      into l_list_price, l_unit_cost\n      from catalogue_items i\n      where i.sku = p_sku;\n\n    -- Calculate margin percentage: ((List Price - Unit Cost) / List Price) * 100\n    if l_list_price is not null and l_unit_cost is not null and l_list_price > 0 then\n      l_margin := round((l_list_price - l_unit_cost) / l_list_price * 100, 1);\n    else\n      l_margin := 0; -- Default to 0 if data is missing or list price is zero\n    end if;\n\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2895,
+      "output_tokens": 488,
+      "seconds": 27.27,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The original implementation of margin_pct in the package body was flawed because it relied on selecting a pre-calculated margin_pct from item_margins_v, which was insufficient for correctly calculating margins when an item was bought in multiple deliveries, leading to incorrect negative margin results.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n    l_list_price number;\n    l_unit_cost number;\n  begin\n    -- The view item_margins_v already calculates margin_pct using average_unit_cost(i.sku).\n    -- The bug is that the original function body was:\n    -- select margin_pct into l_margin from item_margins_v where sku = p_sku;\n    -- This relies on the view's calculation. If the test fails, it means the view's calculation is not what the test expects, or the function should calculate it directly using the components available in the view's definition.\n    -- We must replicate the view's calculation logic here to ensure consistency and correctness, as the view itself might be the source of the discrepancy if it's not dynamically updated correctly for the test scenario.\n\n    select i.list_price, average_unit_cost(i.sku)\n      into l_list_price, l_unit_cost\n      from catalogue_items i\n      where i.sku = p_sku;\n\n    -- Calculate margin percentage: ((List Price - Unit Cost) / List Price) * 100\n    if l_list_price is not null and l_unit_cost is not null and l_list_price > 0 then\n      -- The test expects the result rounded to 1 decimal place, matching the view's definition.\n      l_margin := round((l_list_price - l_unit_cost) / l_list_price * 100, 1);\n    else\n      l_margin := 0; -- Default to 0 if data is missing or list price is zero\n    end if;\n\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

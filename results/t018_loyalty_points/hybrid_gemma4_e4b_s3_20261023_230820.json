@@ -1,0 +1,82 @@
+{
+  "task": "t018_loyalty_points",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "POINTS_RULES",
+      "task": "t018_loyalty_points",
+      "score": 0.9793
+    },
+    {
+      "name": "LOYALTY_PURCHASES_AI",
+      "task": "t018_loyalty_points",
+      "score": 0.9195
+    },
+    {
+      "name": "LOYALTY_PURCHASES",
+      "task": "t018_loyalty_points",
+      "score": 0.7943
+    },
+    {
+      "name": "LOYALTY_MEMBERS",
+      "task": "t018_loyalty_points",
+      "score": 0.6666
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "LOYALTY_API",
+    "POINTS_RULES",
+    "LOYALTY_PURCHASES_AI",
+    "LOYALTY_PURCHASES",
+    "LOYALTY_MEMBERS"
+  ],
+  "buggy_objects": [
+    "POINTS_RULES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "POINTS_RULES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1218,
+  "wall_seconds": 20.1,
+  "timestamp": "2026-10-23T23:08:20",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1218,
+      "output_tokens": 109,
+      "seconds": 17.87,
+      "edited_objects": [
+        "POINTS_RULES"
+      ],
+      "cause": "The points_for function incorrectly calculates points by dividing by 10 instead of 100 as per the rule \"1 point per full 100 spent\".",
+      "candidate": "create or replace package body points_rules as\n  function points_for(p_amount in number) return number is\n  begin\n    return floor(nvl(p_amount, 0) / 100);\n  end points_for;\nend points_rules;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

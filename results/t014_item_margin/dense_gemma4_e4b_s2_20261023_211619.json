@@ -1,0 +1,108 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "ITEM_MARGINS_V",
+      "task": "t014_item_margin",
+      "score": 0.6332
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.5992
+    },
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.5958
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.5917
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "T009_PARCEL_PKG",
+    "T001_PRICING",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1446,
+  "wall_seconds": 63.35,
+  "timestamp": "2026-10-23T21:16:19",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1446,
+      "output_tokens": 202,
+      "seconds": 26.76,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function incorrectly uses a scalar subquery that might return an arbitrary value or fail if multiple rows exist, leading to incorrect margin calculation when an item has multiple cost entries (from different deliveries).",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select round((i.list_price - avg_cost) / i.list_price * 100, 1)\n      into l_margin\n      from (\n        select i.list_price, average_unit_cost(i.sku) as avg_cost\n        from item_margins_v i\n        where i.sku = p_sku\n      )\n      where 1=1;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY MARGIN_REPORT line 5, col 46: PL/SQL: ORA-00904: \"I\".\"LIST_PRICE\": invalid identifier",
+        "PACKAGE BODY MARGIN_REPORT line 5, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1734,
+      "output_tokens": 152,
+      "seconds": 8.18,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function incorrectly references columns from item_margins_v in the subquery, leading to an invalid identifier error.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select round((i.list_price - i.unit_cost) / i.list_price * 100, 1)\n      into l_margin\n      from item_margins_v i\n      where i.sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2173,
+      "output_tokens": 306,
+      "seconds": 22.0,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "The margin_pct function is returning the margin percentage calculated in item_margins_v, but the test expects the margin percentage based on the *average* unit cost across all deliveries, which is what item_margins_v *should* be providing, but the test failure suggests the logic in item_margins_v is flawed or the function needs to aggregate costs differently if multiple entries exist. Since the bug report states the issue is with items bought in several deliveries, and item_margins_v uses average_unit_cost(i.sku), the function should just return the pre-calculated margin_pct from the view, assuming the view calculation is what the test expects for a single item's overall margin. However, if the test expects a specific calculation that differs from the view's pre-calculated margin_pct, we must recalculate it using the view's components.",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select round((i.list_price - i.unit_cost) / i.list_price * 100, 1)\n      into l_margin\n      from item_margins_v i\n      where i.sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

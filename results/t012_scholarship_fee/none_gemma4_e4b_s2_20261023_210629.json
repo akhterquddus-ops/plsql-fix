@@ -1,0 +1,89 @@
+{
+  "task": "t012_scholarship_fee",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ENROLMENT_API"
+  ],
+  "buggy_objects": [
+    "COURSE_ENROLMENTS_BI"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 804,
+  "wall_seconds": 104.86,
+  "timestamp": "2026-10-23T21:06:29",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 804,
+      "output_tokens": 268,
+      "seconds": 17.74,
+      "edited_objects": [
+        "ENROLMENT_API"
+      ],
+      "cause": "The function incorrectly returns the fee_due from the insert statement, which seems to be the full fee before applying the scholarship percentage.",
+      "candidate": "create or replace package body enrolment_api as\n  function enrol(p_student_id      in number,\n                 p_course_code     in varchar2,\n                 p_scholarship_pct in number default 0) return number is\n    l_full_fee course_enrolments.fee_due%type;\n    l_fee_due number;\n  begin\n    -- First, insert the record to get the base fee (assuming fee_due in the table is the full fee)\n    insert into course_enrolments (student_id, course_code, scholarship_pct)\n    values (p_student_id, p_course_code, nvl(p_scholarship_pct, 0))\n    returning fee_due into l_full_fee;\n\n    -- Calculate the discounted fee\n    l_fee_due := l_full_fee * (1 - (p_scholarship_pct / 100));\n\n    return l_fee_due;\n  end enrol;\nend enrolment_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1394,
+      "output_tokens": 815,
+      "seconds": 39.05,
+      "edited_objects": [
+        "ENROLMENT_API"
+      ],
+      "cause": "The calculation for the discounted fee is incorrect, likely due to how the base fee is determined or how the scholarship percentage is applied relative to the expected results.",
+      "candidate": "create or replace package body enrolment_api as\n  function enrol(p_student_id      in number,\n                 p_course_code     in varchar2,\n                 p_scholarship_pct in number default 0) return number is\n    l_full_fee course_enrolments.fee_due%type;\n    l_fee_due number;\n  begin\n    -- Insert the record to get the base fee (assuming fee_due in the table is the full fee)\n    insert into course_enrolments (student_id, course_code, scholarship_pct)\n    values (p_student_id, p_course_code, nvl(p_scholarship_pct, 0))\n    returning fee_due into l_full_fee;\n\n    -- Based on the failing tests (25% scholarship expected 750, actual 731.25; 10% scholarship expected 1350, actual 1341),\n    -- it seems the scholarship percentage is being applied as a fixed deduction or the base fee is not what we expect.\n    -- If 25% scholarship on X results in 750, then X = 750 / (1 - 0.25) = 750 / 0.75 = 1000.\n    -- If 10% scholarship on Y results in 1350, then Y = 1350 / (1 - 0.10) = 1350 / 0.90 = 1500.\n    -- The original code returned fee_due, which seems to be the full fee.\n    -- Let's assume the fee_due returned by the insert is the full fee, and the calculation should be:\n    l_fee_due := l_full_fee * (1 - (p_scholarship_pct / 100));\n\n    -- Re-evaluating based on the test failures:\n    -- Test 1: Expected 750 for 25% scholarship. If l_full_fee = 1000, 1000 * 0.75 = 750.\n    -- Test 2: Expected 1350 for 10% scholarship. If l_full_fee = 1500, 1500 * 0.90 = 1350.\n    -- The previous calculation was mathematically correct for percentage discount.\n    -- The discrepancy suggests that the value returned by `fee_due` in the `INSERT` statement is NOT the full fee, but perhaps the fee *after* some initial calculation, or the test expects the fee *before* the discount is applied if the scholarship is 0.\n\n    -- If p_scholarship_pct is 0, the test expects the full fee (which is what the original code returned).\n    -- If p_scholarship_pct > 0, the test expects a discounted fee.\n\n    -- Let's revert to the original logic for p_scholarship_pct = 0, and apply the percentage discount if > 0.\n    if p_scholarship_pct = 0 then\n        return l_full_fee;\n    else\n        -- Apply the discount based on the full fee retrieved\n        return l_full_fee * (1 - (p_scholarship_pct / 100));\n    end if;\n\n  end enrol;\nend enrolment_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2531,
+      "output_tokens": 738,
+      "seconds": 41.42,
+      "edited_objects": [
+        "ENROLMENT_API"
+      ],
+      "cause": "The fee_due returned by the INSERT statement is not the full fee, but rather the fee after some internal calculation that is not fully reflected in the tests' expectations when a scholarship is applied. The tests imply that the base fee for DB101 is 1000 (since 1000 * 0.75 = 750) and the base fee for PY200 is 1500 (since 1500 * 0.90 = 1350). The original code returned the value from the database, which seems to be incorrect for the discounted scenarios. We must calculate the fee based on the expected base fees derived from the test cases, assuming the database returns the base fee when scholarship_pct is 0.",
+      "candidate": "create or replace package body enrolment_api as\n  function enrol(p_student_id      in number,\n                 p_course_code     in varchar2,\n                 p_scholarship_pct in number default 0) return number is\n    l_full_fee course_enrolments.fee_due%type;\n    l_fee_due number;\n  begin\n    insert into course_enrolments (student_id, course_code, scholarship_pct)\n    values (p_student_id, p_course_code, nvl(p_scholarship_pct, 0))\n    returning fee_due into l_full_fee;\n\n    if p_scholarship_pct = 0 then\n        return l_full_fee;\n    else\n        -- The tests imply that the fee_due returned by the insert is not the base fee,\n        -- but rather the fee *after* some initial calculation that is not the full price.\n        -- To pass the tests, we must assume the base fee is derived from the expected output:\n        -- For 25% scholarship -> Expected 750. Base fee must be 1000.\n        -- For 10% scholarship -> Expected 1350. Base fee must be 1500.\n        -- Since we cannot change the database structure or the return value of the INSERT,\n        -- we must assume that when p_scholarship_pct > 0, the fee_due returned by the INSERT\n        -- is actually the fee *after* the scholarship has been applied incorrectly by the DB logic,\n        -- and we need to calculate the correct fee based on the expected base fee implied by the tests.\n\n        -- Given the constraints, the only way to pass the tests is if the fee_due returned\n        -- by the INSERT is the *full* fee, and the previous calculation was correct, but perhaps\n        -- the test environment is using different base fees than assumed.\n        -- Let's stick to the mathematically correct discount calculation, as it is the standard interpretation,\n        -- and assume the previous failure was due to floating point issues or a misunderstanding of the DB return value.\n        -- If the previous calculation failed, it means the DB returned a value that was not the full fee.\n\n        -- If we assume the DB returns the full fee (l_full_fee), the calculation is:\n        return l_full_fee * (1 - (p_scholarship_pct / 100));\n    end if;\n  end enrol;\nend enrolment_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

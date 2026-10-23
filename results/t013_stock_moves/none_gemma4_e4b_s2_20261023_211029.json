@@ -1,0 +1,79 @@
+{
+  "task": "t013_stock_moves",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "WAREHOUSE_API"
+  ],
+  "buggy_objects": [
+    "STOCK_MOVES_AI"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 890,
+  "wall_seconds": 60.3,
+  "timestamp": "2026-10-23T21:10:29",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 890,
+      "output_tokens": 343,
+      "seconds": 21.42,
+      "edited_objects": [
+        "WAREHOUSE_API"
+      ],
+      "cause": "The ship procedure inserts a record into stock_moves but does not update the actual stock quantity in warehouse_bins.",
+      "candidate": "create or replace package body warehouse_api as\n  function on_hand(p_bin_code in varchar2) return number is\n    l_qty warehouse_bins.qty%type;\n  begin\n    select qty into l_qty from warehouse_bins where bin_code = p_bin_code;\n    return l_qty;\n  end on_hand;\n\n  procedure receive(p_bin_code in varchar2, p_qty in number) is\n  begin\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'IN', p_qty);\n    update warehouse_bins set qty = qty + p_qty where bin_code = p_bin_code;\n  end receive;\n\n  procedure ship(p_bin_code in varchar2, p_qty in number) is\n  begin\n    if on_hand(p_bin_code) < p_qty then\n      raise_application_error(-20060, 'Not enough stock in bin ' || p_bin_code);\n    end if;\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'OUT', p_qty);\n    update warehouse_bins set qty = qty - p_qty where bin_code = p_bin_code;\n  end ship;\nend warehouse_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 3,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1589,
+      "output_tokens": 352,
+      "seconds": 18.04,
+      "edited_objects": [
+        "WAREHOUSE_API"
+      ],
+      "cause": "The initial state of warehouse_bins is not being set up correctly before tests, or the tests assume a specific initial state that is not being maintained across operations.",
+      "candidate": "create or replace package body warehouse_api as\n  function on_hand(p_bin_code in varchar2) return number is\n    l_qty warehouse_bins.qty%type;\n  begin\n    select qty into l_qty from warehouse_bins where bin_code = p_bin_code;\n    return l_qty;\n  end on_hand;\n\n  procedure receive(p_bin_code in varchar2, p_qty in number) is\n  begin\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'IN', p_qty);\n    update warehouse_bins set qty = qty + p_qty where bin_code = p_bin_code;\n  end receive;\n\n  procedure ship(p_bin_code in varchar2, p_qty in number) is\n  begin\n    if on_hand(p_bin_code) < p_qty then\n      raise_application_error(-20060, 'Not enough stock in bin ' || p_bin_code);\n    end if;\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'OUT', p_qty);\n    update warehouse_bins set qty = qty - p_qty where bin_code = p_bin_code;\n  end ship;\nend warehouse_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1994,
+      "output_tokens": 359,
+      "seconds": 14.48,
+      "edited_objects": [
+        "WAREHOUSE_API"
+      ],
+      "cause": "The tests imply that the initial stock in warehouse_bins for 'A1' is 15, but the code relies on the database state which might be zero or inconsistent with test expectations.",
+      "candidate": "create or replace package body warehouse_api as\n  function on_hand(p_bin_code in varchar2) return number is\n    l_qty warehouse_bins.qty%type;\n  begin\n    select qty into l_qty from warehouse_bins where bin_code = p_bin_code;\n    return l_qty;\n  end on_hand;\n\n  procedure receive(p_bin_code in varchar2, p_qty in number) is\n  begin\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'IN', p_qty);\n    update warehouse_bins set qty = qty + p_qty where bin_code = p_bin_code;\n  end receive;\n\n  procedure ship(p_bin_code in varchar2, p_qty in number) is\n  begin\n    if on_hand(p_bin_code) < p_qty then\n      raise_application_error(-20060, 'Not enough stock in bin ' || p_bin_code);\n    end if;\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'OUT', p_qty);\n    update warehouse_bins set qty = qty - p_qty where bin_code = p_bin_code;\n  end ship;\nend warehouse_api;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

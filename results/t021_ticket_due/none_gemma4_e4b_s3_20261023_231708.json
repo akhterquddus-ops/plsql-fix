@@ -1,0 +1,89 @@
+{
+  "task": "t021_ticket_due",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "TICKET_API"
+  ],
+  "buggy_objects": [
+    "SLA_POLICY"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 726,
+  "wall_seconds": 70.0,
+  "timestamp": "2026-10-23T23:17:08",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 726,
+      "output_tokens": 352,
+      "seconds": 24.68,
+      "edited_objects": [
+        "TICKET_API"
+      ],
+      "cause": "The SLA policy hours for priorities are likely being interpreted incorrectly, leading to incorrect due times.",
+      "candidate": "create or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n  begin\n    -- Assuming sla_policy.hours_for(p_priority) returns the required hours as a number.\n    -- To add hours to a date in Oracle, we should use INTERVAL arithmetic or add fractions of a day.\n    -- If the test expects specific times, the calculation needs to match the expected SLA.\n    -- Based on the test failures:\n    -- Urgent (P1?): Expected 4 hours from start.\n    -- Normal (P2): Expected 8 hours from start.\n    -- Low (P3): Expected 24 hours from start.\n    -- The original code used division by 24, which is correct for converting hours to days.\n    -- The issue might be how sla_policy.hours_for returns values, or the test setup implies a different mapping.\n    -- Assuming the test expects: P1=4, P2=8, P3=24 hours.\n    -- If sla_policy.hours_for returns the hours directly, the original logic is mathematically correct for adding days.\n    -- Let's assume the test expects the hours to be added directly as an interval, which is safer than division.\n    return p_opened + (sla_policy.hours_for(p_priority) / 24);\n  end due_at;\nend ticket_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1435,
+      "output_tokens": 386,
+      "seconds": 24.7,
+      "edited_objects": [
+        "TICKET_API"
+      ],
+      "cause": "The original calculation using division by 24 is correct for adding days, but the test failures suggest that the expected SLA hours for P2 and P3 are not being met, implying the SLA policy lookup or the required calculation needs to be adjusted to match the expected output times.",
+      "candidate": "create or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n  begin\n    -- Based on the failing tests:\n    -- P2 (Normal) expected 8 hours from start.\n    -- P3 (Low) expected 24 hours from start.\n    -- If sla_policy.hours_for returns the required hours (e.g., 8 for P2, 24 for P3),\n    -- adding (hours / 24) is the correct way to add fractions of a day.\n    -- Since the tests are failing, it implies the values returned by sla_policy.hours_for are not what the tests expect,\n    -- or the test setup implies a specific mapping that needs to be hardcoded/assumed if the external dependency (sla_policy) is unknown.\n    -- To pass the tests, we must ensure the calculation yields the expected time difference.\n    -- Assuming P2 needs 8 hours and P3 needs 24 hours, we adjust the calculation to use INTERVAL for precision if the division is causing issues,\n    -- or we assume the SLA policy returns the correct hours and the division is the issue.\n    -- Using INTERVAL is the most robust way to add time units.\n    return p_opened + (sla_policy.hours_for(p_priority) / 24);\n  end due_at;\nend ticket_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2177,
+      "output_tokens": 168,
+      "seconds": 13.94,
+      "edited_objects": [
+        "TICKET_API"
+      ],
+      "cause": "The test failures indicate that the expected due times (8 hours for P2, 24 hours for P3) are not being calculated correctly, suggesting that the division by 24 is not producing the required fractional day addition, or the SLA policy returns values that are not directly hours. To fix this, we must use INTERVAL arithmetic to precisely add the hours returned by sla_policy.hours_for.",
+      "candidate": "create or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n  begin\n    return p_opened + INTERVAL '1' HOUR * sla_policy.hours_for(p_priority);\n  end due_at;\nend ticket_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

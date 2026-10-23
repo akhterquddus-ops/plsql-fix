@@ -1,0 +1,82 @@
+{
+  "task": "t016_active_staff",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "HEADCOUNT_REPORT"
+  ],
+  "buggy_objects": [
+    "ACTIVE_STAFF_V"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 644,
+  "wall_seconds": 36.44,
+  "timestamp": "2026-10-23T22:58:30",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 644,
+      "output_tokens": 149,
+      "seconds": 13.3,
+      "edited_objects": [
+        "HEADCOUNT_REPORT"
+      ],
+      "cause": "The headcount function only counts records in active_staff_v, which seems to exclude permanent staff that should be counted.",
+      "candidate": "create or replace package body headcount_report as\n  function headcount(p_dept_code in varchar2) return number is\n    l_count number;\n  begin\n    select count(*) into l_count from (\n        select * from active_staff_v\n        union all\n        select * from permanent_staff_v where dept_code = p_dept_code\n    ) where dept_code = p_dept_code;\n    return l_count;\n  end headcount;\nend headcount_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY HEADCOUNT_REPORT line 8, col 23: PL/SQL: ORA-00942: table or view does not exist",
+        "PACKAGE BODY HEADCOUNT_REPORT line 5, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 876,
+      "output_tokens": 166,
+      "seconds": 8.69,
+      "edited_objects": [
+        "HEADCOUNT_REPORT"
+      ],
+      "cause": "The union operation in the previous attempt was incorrectly structured, causing ORA-00942 because the unioned views might not have matching columns or the structure was flawed for simple counting.",
+      "candidate": "create or replace package body headcount_report as\n  function headcount(p_dept_code in varchar2) return number is\n    l_count number;\n  begin\n    select count(*) into l_count from (\n        select dept_code from active_staff_v where dept_code = p_dept_code\n        union\n        select dept_code from permanent_staff_v where dept_code = p_dept_code\n    );\n    return l_count;\n  end headcount;\nend headcount_report;\n/",
+      "compile_errors": [
+        "PACKAGE BODY HEADCOUNT_REPORT line 8, col 31: PL/SQL: ORA-00942: table or view does not exist",
+        "PACKAGE BODY HEADCOUNT_REPORT line 5, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1125,
+      "output_tokens": 162,
+      "seconds": 8.24,
+      "edited_objects": [
+        "HEADCOUNT_REPORT"
+      ],
+      "cause": "The previous attempt to use UNION in the subquery was syntactically incorrect for counting across two different views/tables, leading to ORA-00942.",
+      "candidate": "create or replace package body headcount_report as\n  function headcount(p_dept_code in varchar2) return number is\n    l_count number;\n  begin\n    select count(*) into l_count from (\n        select dept_code from active_staff_v where dept_code = p_dept_code\n        union\n        select dept_code from permanent_staff_v where dept_code = p_dept_code\n    );\n    return l_count;\n  end headcount;\nend headcount_report;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "task": "t020_phone_format",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T007_REPORTS_API",
+      "task": "t007_region_summary",
+      "score": 0.9342
+    },
+    {
+      "name": "T011_FULL_NAME",
+      "task": "t011_full_name",
+      "score": 0.8903
+    },
+    {
+      "name": "T007_CUSTOMER_Q",
+      "task": "t007_region_summary",
+      "score": 0.8594
+    },
+    {
+      "name": "T002_WORKING_DAYS",
+      "task": "t002_working_days",
+      "score": 0.8409
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "FORMAT_PHONE",
+    "T007_REPORTS_API",
+    "T011_FULL_NAME",
+    "T007_CUSTOMER_Q",
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_objects": [
+    "FORMAT_PHONE"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "FORMAT_PHONE"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1617,
+  "wall_seconds": 45.09,
+  "timestamp": "2026-10-23T23:14:50",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1617,
+      "output_tokens": 518,
+      "seconds": 42.87,
+      "edited_objects": [
+        "FORMAT_PHONE"
+      ],
+      "cause": "The format_phone function incorrectly appends the remaining digits instead of truncating the last digit when formatting an 11-digit number.",
+      "candidate": "create or replace function format_phone(p_number in varchar2) return varchar2 is\n  -- Formats an 11-digit mobile number as 0300-1234567; other input is returned unchanged.\n  l_digits varchar2(40) := regexp_replace(p_number, '[^0-9]', '');\nbegin\n  if length(l_digits) = 11 then\n    -- The expected format is 4 digits - 7 digits (total 11 digits).\n    -- The original code returned substr(l_digits, 4) which is 7 digits long, resulting in 4+1+7 = 12 characters if the input was 11 digits.\n    -- If the input is 11 digits, we want the first 4 digits, a dash, and the remaining 7 digits.\n    -- The test output suggests the expected format is 4 digits - 7 digits, totaling 11 digits including the dash, or 10 digits of numbers.\n    -- Test 1: Input '03001234567' (11 digits). Expected: '0300-1234567' (4 + 1 + 7 = 12 characters).\n    -- The bug report states \"Mobile numbers on customer letters have one digit too many after the dash.\"\n    -- If the input is 11 digits (e.g., 03001234567), and the expected output is '0300-1234567', then the second part must be 7 digits long.\n    -- substr(l_digits, 4) returns 8 digits if l_digits is 11 digits long (11 - 4 + 1 = 8).\n    -- We need to return substr(l_digits, 4, 7) to get exactly 7 digits.\n    return substr(l_digits, 1, 4) || '-' || substr(l_digits, 5, 7);\n  end if;\n  return p_number;\nend format_phone;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

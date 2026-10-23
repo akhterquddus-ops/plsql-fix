@@ -1,0 +1,94 @@
+{
+  "task": "t012_scholarship_fee",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "COURSE_ENROLMENTS_BI",
+      "task": "t012_scholarship_fee",
+      "score": 0.9835
+    },
+    {
+      "name": "COURSE_ENROLMENTS",
+      "task": "t012_scholarship_fee",
+      "score": 0.9583
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.698
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6187
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ENROLMENT_API",
+    "COURSE_ENROLMENTS_BI",
+    "COURSE_ENROLMENTS",
+    "T004_LOANS_API",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "COURSE_ENROLMENTS_BI"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "COURSE_ENROLMENTS_BI"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1567,
+  "wall_seconds": 33.15,
+  "timestamp": "2026-10-23T21:08:20",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1567,
+      "output_tokens": 196,
+      "seconds": 22.7,
+      "edited_objects": [
+        "ENROLMENT_API"
+      ],
+      "cause": "The trigger course_enrolments_bi incorrectly subtracts the scholarship percentage from the course fee instead of calculating the discounted fee.",
+      "candidate": "create or replace package body enrolment_api as\n  function enrol(p_student_id      in number,\n                 p_course_code     in varchar2,\n                 p_scholarship_pct in number default 0) return number is\n    l_fee_due course_enrolments.fee_due%type;\n  begin\n    insert into course_enrolments (student_id, course_code, scholarship_pct)\n    values (p_student_id, p_course_code, nvl(p_scholarship_pct, 0))\n    returning fee_due into l_fee_due;\n    return l_fee_due;\n  end enrol;\nend enrolment_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1816,
+      "output_tokens": 156,
+      "seconds": 6.16,
+      "edited_objects": [
+        "COURSE_ENROLMENTS_BI"
+      ],
+      "cause": "The trigger course_enrolments_bi incorrectly subtracts the scholarship percentage from the course fee instead of calculating the discounted fee.",
+      "candidate": "create or replace trigger course_enrolments_bi\nbefore insert on course_enrolments\nfor each row\ndeclare\n  l_fee courses.fee%type;\nbegin\n  -- Fee the student pays after their scholarship (a percentage of the course fee).\n  select fee into l_fee from courses where course_code = :new.course_code;\n  :new.fee_due := l_fee * (1 - (:new.scholarship_pct / 100));\nend course_enrolments_bi;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.9117
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.8691
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.8461
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.836
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "AVERAGE_UNIT_COST",
+    "CATALOGUE_ITEMS",
+    "T001_PRICING",
+    "T009_CHECKOUT_API",
+    "T001_ORDERS_API",
+    "T009_PARCEL_PKG"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1884,
+  "wall_seconds": 46.03,
+  "timestamp": "2026-10-23T22:53:04",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1884,
+      "output_tokens": 145,
+      "seconds": 24.31,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST"
+      ],
+      "cause": "The average_unit_cost function calculates the sum of total_cost divided by the count of goods receipts, which is incorrect for a weighted average cost calculation when multiple deliveries exist.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select sum(total_cost) / sum(quantity)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/",
+      "compile_errors": [
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 32: PL/SQL: ORA-00904: \"QUANTITY\": invalid identifier",
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 3: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2112,
+      "output_tokens": 153,
+      "seconds": 7.66,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST"
+      ],
+      "cause": "The average_unit_cost function was attempting to divide by a non-existent 'quantity' column in the goods_receipts table, instead of using the correct column name for quantity.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select sum(total_cost) / nullif(sum(quantity), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/",
+      "compile_errors": [
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 39: PL/SQL: ORA-00904: \"QUANTITY\": invalid identifier",
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 3: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2348,
+      "output_tokens": 153,
+      "seconds": 7.85,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST"
+      ],
+      "cause": "The average_unit_cost function was using 'quantity' which is not available in the provided schema context for goods_receipts, and the original logic was flawed for weighted average cost.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select sum(total_cost) / nullif(sum(quantity), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

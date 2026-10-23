@@ -1,0 +1,57 @@
+{
+  "task": "t020_phone_format",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "FORMAT_PHONE"
+  ],
+  "buggy_objects": [
+    "FORMAT_PHONE"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "FORMAT_PHONE"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 733,
+  "wall_seconds": 16.98,
+  "timestamp": "2026-10-23T22:30:39",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 733,
+      "output_tokens": 174,
+      "seconds": 14.78,
+      "edited_objects": [
+        "FORMAT_PHONE"
+      ],
+      "cause": "The substr function was incorrectly used to append the remaining digits, resulting in an extra digit after the dash.",
+      "candidate": "create or replace function format_phone(p_number in varchar2) return varchar2 is\n  -- Formats an 11-digit mobile number as 0300-1234567; other input is returned unchanged.\n  l_digits varchar2(40) := regexp_replace(p_number, '[^0-9]', '');\nbegin\n  if length(l_digits) = 11 then\n    return substr(l_digits, 1, 4) || '-' || substr(l_digits, 5);\n  end if;\n  return p_number;\nend format_phone;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

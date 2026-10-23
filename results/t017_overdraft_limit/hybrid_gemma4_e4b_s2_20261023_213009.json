@@ -1,0 +1,82 @@
+{
+  "task": "t017_overdraft_limit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "BANK_ACCOUNTS_BU",
+      "task": "t017_overdraft_limit",
+      "score": 0.9641
+    },
+    {
+      "name": "T003_ACCOUNTS_API",
+      "task": "t003_transfer_fee",
+      "score": 0.8369
+    },
+    {
+      "name": "BANK_ACCOUNTS",
+      "task": "t017_overdraft_limit",
+      "score": 0.8004
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.6922
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ATM_API",
+    "BANK_ACCOUNTS_BU",
+    "T003_ACCOUNTS_API",
+    "BANK_ACCOUNTS",
+    "T008_PAYMENTS_API"
+  ],
+  "buggy_objects": [
+    "BANK_ACCOUNTS_BU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "ATM_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1605,
+  "wall_seconds": 37.37,
+  "timestamp": "2026-10-23T21:30:09",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1605,
+      "output_tokens": 462,
+      "seconds": 35.14,
+      "edited_objects": [
+        "ATM_API"
+      ],
+      "cause": "The withdraw function in atm_api does not check the overdraft limit before updating the balance, relying solely on a trigger that might not be sufficient or correctly invoked/handled in the current context.",
+      "candidate": "create or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    l_current_balance bank_accounts.balance%type;\n    l_overdraft_limit bank_accounts.overdraft_limit%type;\n    l_new_balance bank_accounts.balance%type;\n  begin\n    -- Get current balance and overdraft limit\n    select balance, overdraft_limit into l_current_balance, l_overdraft_limit\n    from bank_accounts\n    where account_no = p_account_no;\n\n    -- Calculate potential new balance\n    l_new_balance := l_current_balance - p_amount;\n\n    -- Check if the new balance exceeds the allowed overdraft limit\n    -- The limit is defined as the maximum negative balance allowed.\n    -- If l_new_balance < -l_overdraft_limit, it means the withdrawal exceeds the limit.\n    if l_new_balance < (-l_overdraft_limit) then\n      return 'DECLINED';\n    end if;\n\n    -- If within limits, perform the update\n    update bank_accounts\n      set balance = l_new_balance\n    where account_no = p_account_no;\n\n    return 'OK';\n  exception\n    when no_data_found then\n      -- Handle case where account_no is not found, although not explicitly tested, it's good practice\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.9093
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.8706
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.8502
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.836
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "AVERAGE_UNIT_COST",
+    "CATALOGUE_ITEMS",
+    "T001_PRICING",
+    "T009_CHECKOUT_API",
+    "T001_ORDERS_API",
+    "T009_PARCEL_PKG"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1884,
+  "wall_seconds": 106.84,
+  "timestamp": "2026-10-23T21:20:08",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1884,
+      "output_tokens": 236,
+      "seconds": 26.52,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST"
+      ],
+      "cause": "The average_unit_cost function calculates the simple average of total costs across all goods receipts, which is incorrect for weighted average cost calculation when calculating margin percentage.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_total_cost number := 0;\n  l_total_qty number := 0;\n  l_cost number;\nbegin\n  select sum(total_cost) into l_total_cost\n    from goods_receipts\n   where sku = p_sku;\n\n  select sum(quantity) into l_total_qty\n    from goods_receipts\n   where sku = p_sku;\n\n  if l_total_qty > 0 then\n    l_cost := l_total_cost / l_total_qty;\n  else\n    l_cost := 0;\n  end if;\n\n  return l_cost;\nend average_unit_cost;\n/",
+      "compile_errors": [
+        "FUNCTION AVERAGE_UNIT_COST line 11, col 14: PL/SQL: ORA-00904: \"QUANTITY\": invalid identifier",
+        "FUNCTION AVERAGE_UNIT_COST line 11, col 3: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2205,
+      "output_tokens": 496,
+      "seconds": 28.74,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST"
+      ],
+      "cause": "The average_unit_cost function was attempting to select a column 'quantity' from goods_receipts, but the schema provided for goods_receipts (implicitly via the original code structure) suggests it might not have a 'quantity' column, or the original logic was flawed in how it derived the denominator for the weighted average.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_total_cost number := 0;\n  l_total_qty number := 0;\n  l_cost number;\nbegin\n  select sum(total_cost) into l_total_cost\n    from goods_receipts\n   where sku = p_sku;\n\n  -- Assuming goods_receipts has a 'quantity' column based on the need for weighted average cost calculation.\n  -- If 'quantity' is not available, the original logic (sum(total_cost) / count(*)) implies that each row represents one unit or that total_cost already accounts for quantity, but the bug report suggests the simple average is wrong.\n  -- To fix the ORA-00904, I must assume the original structure intended to use the quantity associated with the cost in each receipt.\n  -- Since I don't have the schema for goods_receipts, I will revert to the original structure but correct the calculation to be a proper weighted average if possible, or assume the original structure was flawed and that the cost per receipt is what needs to be averaged correctly.\n  -- Given the original code: select sum(total_cost) / nullif(count(*), 0)\n  -- This calculates the average total cost per receipt, not the weighted average unit cost.\n  -- A weighted average unit cost requires: SUM(Total Cost of Receipt) / SUM(Quantity of Receipt).\n  -- I will assume goods_receipts has 'quantity' and 'total_cost' columns.\n  select sum(total_cost) / nullif(sum(quantity), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n\n  return l_cost;\nend average_unit_cost;\n/",
+      "compile_errors": [
+        "FUNCTION AVERAGE_UNIT_COST line 19, col 39: PL/SQL: ORA-00904: \"QUANTITY\": invalid identifier",
+        "FUNCTION AVERAGE_UNIT_COST line 19, col 3: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2786,
+      "output_tokens": 697,
+      "seconds": 45.36,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST"
+      ],
+      "cause": "The function average_unit_cost is incorrectly attempting to use a 'quantity' column in the aggregate calculation, which does not exist in the goods_receipts table based on the error. The original logic used COUNT(*), suggesting that each row in goods_receipts represents a unit or that the total_cost already reflects the quantity in a way that simple averaging was attempted. To fix the margin calculation bug while respecting the schema constraints implied by the error, I must revert to the original structure but ensure the division is correct for a weighted average if possible, or stick to the original structure if the schema is strictly limited. Since the original code was: select sum(total_cost) / nullif(count(*), 0), and this failed the test, the issue is likely that total_cost is not the unit cost, but the total cost for that receipt.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  -- To calculate weighted average unit cost, we need SUM(Total Cost) / SUM(Quantity).\n  -- Since the error indicates 'quantity' is invalid, I must assume that 'total_cost' in goods_receipts IS the cost for the quantity received in that receipt, and we must find the quantity somehow, or assume the original structure was flawed and that the test expects a simple average of the unit costs if they were available, or that the total_cost field is actually the unit cost.\n  -- Given the failure in the test and the error in the function, the most robust fix that addresses the weighted average concept without assuming a 'quantity' column is to assume that the original intent was to calculate the average of the *unit cost* per receipt, and that the original code was missing the unit cost calculation.\n  -- However, sticking strictly to fixing the compile error while aiming for the correct weighted average: if 'quantity' is missing, we cannot compute the weighted average correctly. I will assume that 'total_cost' represents the total cost, and there must be a quantity column that was missed in the schema description, but since I cannot add it, I must use the original structure which passed compilation but failed tests, and modify it to pass tests by assuming the test expects a simple average of the unit cost if total_cost is the unit cost, or that the original logic was flawed because it used COUNT(*) instead of summing quantities.\n  -- Reverting to the original structure but acknowledging the test failure implies the simple average is wrong. The only way to fix the test failure is to change the calculation to reflect a proper weighted average, which requires quantity. I will assume the original code intended to use a quantity column that was present in the underlying data source but not explicitly listed in the error context, and I will use the structure that *should* work for weighted average, hoping the environment has the quantity column. If it fails again, the schema is incomplete.\n  select sum(total_cost) / nullif(sum(quantity), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/",
+      "compile_errors": [
+        "FUNCTION AVERAGE_UNIT_COST line 10, col 39: PL/SQL: ORA-00904: \"QUANTITY\": invalid identifier",
+        "FUNCTION AVERAGE_UNIT_COST line 10, col 3: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

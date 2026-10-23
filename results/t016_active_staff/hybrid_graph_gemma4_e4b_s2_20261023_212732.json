@@ -1,0 +1,84 @@
+{
+  "task": "t016_active_staff",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T002_WORKING_DAYS",
+      "task": "t002_working_days",
+      "score": 0.9451
+    },
+    {
+      "name": "T007_REPORTS_API",
+      "task": "t007_region_summary",
+      "score": 0.8544
+    },
+    {
+      "name": "T007_CUSTOMER_Q",
+      "task": "t007_region_summary",
+      "score": 0.8022
+    },
+    {
+      "name": "T003_ACCOUNTS_API",
+      "task": "t003_transfer_fee",
+      "score": 0.7515
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "HEADCOUNT_REPORT",
+    "ACTIVE_STAFF_V",
+    "STAFF",
+    "T002_WORKING_DAYS",
+    "T007_REPORTS_API",
+    "T007_CUSTOMER_Q",
+    "T003_ACCOUNTS_API"
+  ],
+  "buggy_objects": [
+    "ACTIVE_STAFF_V"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "ACTIVE_STAFF_V"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1898,
+  "wall_seconds": 24.56,
+  "timestamp": "2026-10-23T21:27:32",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1898,
+      "output_tokens": 103,
+      "seconds": 22.31,
+      "edited_objects": [
+        "ACTIVE_STAFF_V"
+      ],
+      "cause": "The view ACTIVE_STAFF_V incorrectly filters out staff whose end_date is today or in the future, leading to undercounting.",
+      "candidate": "create or replace view active_staff_v as\n-- Staff still employed: no end date yet, or an end date today or later.\nselect staff_id, full_name, dept_code\n  from staff\n where end_date is null or end_date >= trunc(sysdate)\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

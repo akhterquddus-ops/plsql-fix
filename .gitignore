@@ -21,3 +21,7 @@ Thumbs.db
 # embedding cache and local reference files
 .cache/
 reference/
+
+Documents-Agent-Paper/
+Scripts-Start-Gemma-project.txt
+gpu_log_*.csv

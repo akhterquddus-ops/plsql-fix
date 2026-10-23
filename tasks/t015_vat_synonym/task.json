@@ -1,0 +1,12 @@
+{
+  "id": "t015_vat_synonym",
+  "title": "Invoices use last year's VAT rates",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "wrong_reference",
+  "dependency_kind": "synonym",
+  "entry_object": "INVOICE_TAX",
+  "buggy_objects": ["VAT_RATES"],
+  "bug_report": "VAT on new invoices is calculated with last year's rates. The new rates have already been loaded into the system.",
+  "source": "self-written"
+}

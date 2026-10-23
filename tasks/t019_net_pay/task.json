@@ -1,0 +1,12 @@
+{
+  "id": "t019_net_pay",
+  "title": "Too much deducted from lower salaries",
+  "category": "cross_object",
+  "hops": 2,
+  "bug_kind": "min_max_swap",
+  "dependency_kind": "call",
+  "entry_object": "PAYROLL_API",
+  "buggy_objects": ["PENSION_RULES"],
+  "bug_report": "Employees on lower salaries have far too much deducted from their monthly net pay. High earners look correct.",
+  "source": "self-written"
+}

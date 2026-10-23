@@ -1,0 +1,12 @@
+{
+  "id": "t018_loyalty_points",
+  "title": "Ten times too many loyalty points",
+  "category": "cross_object",
+  "hops": 2,
+  "bug_kind": "wrong_constant",
+  "dependency_kind": "trigger",
+  "entry_object": "LOYALTY_API",
+  "buggy_objects": ["POINTS_RULES"],
+  "bug_report": "Members receive about ten times more loyalty points than the programme rules allow.",
+  "source": "self-written"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "t020_phone_format",
+  "title": "Mobile numbers formatted with a repeated digit",
+  "category": "local",
+  "hops": 0,
+  "bug_kind": "off_by_one",
+  "dependency_kind": "none",
+  "entry_object": "FORMAT_PHONE",
+  "buggy_objects": ["FORMAT_PHONE"],
+  "bug_report": "Mobile numbers on customer letters have one digit too many after the dash.",
+  "source": "self-written"
+}

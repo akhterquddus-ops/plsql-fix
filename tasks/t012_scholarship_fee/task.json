@@ -1,0 +1,12 @@
+{
+  "id": "t012_scholarship_fee",
+  "title": "Scholarship students charged almost the full fee",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "wrong_formula",
+  "dependency_kind": "trigger",
+  "entry_object": "ENROLMENT_API",
+  "buggy_objects": ["COURSE_ENROLMENTS_BI"],
+  "bug_report": "Students with a scholarship are asked to pay almost the full course fee. Students without a scholarship are charged correctly.",
+  "source": "self-written"
+}

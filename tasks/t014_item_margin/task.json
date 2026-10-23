@@ -1,0 +1,12 @@
+{
+  "id": "t014_item_margin",
+  "title": "Item margins wildly negative",
+  "category": "cross_object",
+  "hops": 2,
+  "bug_kind": "wrong_aggregate",
+  "dependency_kind": "view",
+  "entry_object": "MARGIN_REPORT",
+  "buggy_objects": ["AVERAGE_UNIT_COST"],
+  "bug_report": "The margin report shows huge negative margins for items that were bought in several deliveries. Items bought in a single delivery look right.",
+  "source": "self-written"
+}

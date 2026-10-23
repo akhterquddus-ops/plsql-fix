@@ -1,0 +1,12 @@
+{
+  "id": "t021_ticket_due",
+  "title": "Ticket due times swapped for P2 and P3",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "wrong_mapping",
+  "dependency_kind": "call",
+  "entry_object": "TICKET_API",
+  "buggy_objects": ["SLA_POLICY"],
+  "bug_report": "Normal-priority support tickets get a later due time than low-priority tickets. Urgent tickets look correct.",
+  "source": "self-written"
+}

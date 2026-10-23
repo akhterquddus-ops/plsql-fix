@@ -1,0 +1,12 @@
+{
+  "id": "t013_stock_moves",
+  "title": "Shipping goods increases stock",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "wrong_logic",
+  "dependency_kind": "trigger",
+  "entry_object": "WAREHOUSE_API",
+  "buggy_objects": ["STOCK_MOVES_AI"],
+  "bug_report": "After goods are shipped out of the warehouse, the stock on hand goes up instead of down. Receiving goods works.",
+  "source": "self-written"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "t017_overdraft_limit",
+  "title": "Withdrawals beyond the overdraft limit allowed",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "wrong_reference",
+  "dependency_kind": "trigger",
+  "entry_object": "ATM_API",
+  "buggy_objects": ["BANK_ACCOUNTS_BU"],
+  "bug_report": "Customers can withdraw far more cash than their overdraft limit allows. Such withdrawals should be declined.",
+  "source": "self-written"
+}

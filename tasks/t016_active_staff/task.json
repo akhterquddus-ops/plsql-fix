@@ -1,0 +1,12 @@
+{
+  "id": "t016_active_staff",
+  "title": "Headcount far too low",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "null_handling",
+  "dependency_kind": "view",
+  "entry_object": "HEADCOUNT_REPORT",
+  "buggy_objects": ["ACTIVE_STAFF_V"],
+  "bug_report": "Headcount reports show far fewer employees than the departments actually have. Most permanent staff seem to be missing.",
+  "source": "self-written"
+}

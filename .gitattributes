@@ -1,2 +1,4 @@
 * text=auto eol=lf
 *.ps1 text eol=crlf
+*.ipynb linguist-detectable=false
+*.sql linguist-language=PLSQL

@@ -1,2 +1,9 @@
+# agent
 oracledb>=2.0
 requests>=2.31
+# code search (dense / hybrid settings)
+sentence-transformers>=3.0
+# analysis notebook
+pandas>=2.0
+scipy>=1.10
+matplotlib>=3.7

@@ -1,0 +1,69 @@
+{
+  "task": "t004_late_fee",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T004_LOANS_API"
+  ],
+  "buggy_objects": [
+    "T004_UTIL"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 728,
+  "wall_seconds": 54.33,
+  "timestamp": "2026-10-23T11:54:02",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 728,
+      "output_tokens": 242,
+      "seconds": 15.79,
+      "edited_objects": [
+        "T004_LOANS_API"
+      ],
+      "cause": "The late_fee function incorrectly calculates the number of days late by using the returned_date instead of the due_date as the starting point for calculating lateness.",
+      "candidate": "create or replace package body t004_loans_api as\n  c_daily_fee constant number := 0.50;\n\n  function late_fee(p_loan_id in number) return number is\n    l_due      t004_loans.due_date%type;\n    l_returned t004_loans.returned_date%type;\n  begin\n    select due_date, returned_date\n      into l_due, l_returned\n      from t004_loans\n     where loan_id = p_loan_id;\n    if l_returned is null then\n      return 0;\n    end if;\n    return t004_util.days_late(l_due, l_returned) * c_daily_fee;\n  end late_fee;\nend t004_loans_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1023,
+      "output_tokens": 267,
+      "seconds": 9.94,
+      "edited_objects": [
+        "T004_LOANS_API"
+      ],
+      "cause": "The utPLSQL test output shows that for a 3-day late scenario, the actual result is 36, while the expected result is 1.5. This indicates that t004_util.days_late is returning 72 instead of 3.",
+      "candidate": "create or replace package body t004_loans_api as\n  c_daily_fee constant number := 0.50;\n\n  function late_fee(p_loan_id in number) return number is\n    l_due      t004_loans.due_date%type;\n    l_returned t004_loans.returned_date%type;\n  begin\n    select due_date, returned_date\n      into l_due, l_returned\n      from t004_loans\n     where loan_id = p_loan_id;\n    if l_returned is null then\n      return 0;\n    end if;\n    return t004_util.days_late(l_due, l_returned) * c_daily_fee;\n  end late_fee;\nend t004_loans_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1343,
+      "output_tokens": 482,
+      "seconds": 22.48,
+      "edited_objects": [],
+      "cause": "The utPLSQL test output shows that for a 3-day late scenario, the actual result is 36, while the expected result is 1.5. This suggests that t004_util.days_late is returning 72 instead of 3, which implies the calculation of days late is incorrect, likely due to how dates are handled or how days_late is implemented/called. Assuming the issue is that days_late is returning 72 when it should return 3, and since I cannot change t004_util, I must assume the logic in late_fee is flawed in how it uses the result of days_late, or that the test case implies a different calculation for days late. Given the expected result (1.5) and the daily fee (0.50), the expected days late is 3. The actual result (36) implies days_late returned 72. If I must fix this within this package, I will assume the issue is that days_late is returning the difference in days multiplied by some factor (e.g., 24 or 36), and I will manually calculate the difference in days here to bypass the faulty external function call, assuming standard date arithmetic for days late.",
+      "candidate": "function late_fee(p_loan_id in number) return number is\n    l_due      t004_loans.due_date%type;\n    l_returned t004_loans.returned_date%type;\n    l_days_late number;\n  begin\n    select due_date, returned_date\n      into l_due, l_returned\n      from t004_loans\n     where loan_id = p_loan_id;\n    if l_returned is null then\n      return 0;\n    end if;\n    l_days_late := TRUNC(l_returned) - TRUNC(l_due);\n    if l_days_late < 0 then\n        l_days_late := 0; -- Returned early or on time\n    end if;\n    return l_days_late * c_daily_fee;\n  end late_fee;\n/",
+      "outcome": "invalid_statement"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "t011_full_name",
+  "title": "Double spaces in customer names",
+  "category": "local",
+  "hops": 0,
+  "bug_kind": "null_handling",
+  "entry_object": "T011_FULL_NAME",
+  "buggy_objects": ["T011_FULL_NAME"],
+  "bug_report": "Customer names on letters sometimes contain two spaces in a row.",
+  "source": "self-written"
+}

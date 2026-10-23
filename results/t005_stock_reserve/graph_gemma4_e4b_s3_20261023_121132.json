@@ -1,0 +1,57 @@
+{
+  "task": "t005_stock_reserve",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T005_ORDERS_API",
+    "T005_STOCK_PKG",
+    "T005_STOCK",
+    "T005_STOCK_UTIL"
+  ],
+  "buggy_objects": [
+    "T005_STOCK_UTIL"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T005_STOCK_UTIL"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1242,
+  "wall_seconds": 40.1,
+  "timestamp": "2026-10-23T12:11:32",
+  "baseline": {
+    "tests": 4,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1242,
+      "output_tokens": 547,
+      "seconds": 37.92,
+      "edited_objects": [
+        "T005_STOCK_UTIL"
+      ],
+      "cause": "T005_STOCK_UTIL.available function incorrectly returns 0 for products not in T005_STOCK, leading to false 'NO_STOCK' reports for new products.",
+      "candidate": "create or replace package body t005_stock_util as\n  function available(p_product_id in number) return number is\n    l_available number;\n  begin\n    select on_hand - NVL(reserved, 0)\n      into l_available\n      from t005_stock\n     where product_id = p_product_id;\n    return l_available;\n  exception\n    when no_data_found then\n      -- If product is not in stock table, it has 0 on_hand and 0 reserved, so available is 0.\n      -- However, if the test expects 'OK' for a product that has never had a reservation,\n      -- it implies the product should exist in T005_STOCK with some on_hand quantity,\n      -- or the logic needs to handle the initial state correctly.\n      -- Given the failing test expects 'OK' for a product that has never had a reservation,\n      -- we assume that if it's not found, it should be treated as having 0 available stock,\n      -- UNLESS the test setup implies the product *should* exist.\n      -- The bug description suggests products *are* in the warehouse but not reserved.\n      -- If the product is missing from T005_STOCK, it means it has no stock record, so available is 0.\n      -- To satisfy the test case where a product *should* be orderable (i.e., has stock),\n      -- we must assume the test setup ensures the product exists, or we must adjust the logic\n      -- to handle the initial state where on_hand > 0 and reserved is NULL.\n      -- The original code returned 0 on no_data_found. If the product exists but reserved is NULL,\n      -- the original code would fail to calculate correctly if the select failed for some reason,\n      -- but the primary issue is likely how NULL reserved is handled in the calculation.\n      -- Let's fix the calculation to handle NULL reserved explicitly, which is safer than relying on the exception handler for the base case.\n      return 0; -- Keep 0 for no_data_found, as that means no stock record exists.\n  end available;\nend t005_stock_util;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

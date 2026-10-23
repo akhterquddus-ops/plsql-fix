@@ -1,0 +1,81 @@
+{
+  "task": "t010_loan_payment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T010_LOANS_API"
+  ],
+  "buggy_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1053,
+  "wall_seconds": 51.31,
+  "timestamp": "2026-10-23T12:22:13",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 1
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1053,
+      "output_tokens": 205,
+      "seconds": 20.29,
+      "edited_objects": [
+        "T010_LOANS_API"
+      ],
+      "cause": "The monthly_payment function does not handle the case where annual_pct is zero, leading to division by zero in the underlying payment calculation.",
+      "candidate": "create or replace package body t010_loans_api as\n  function monthly_payment(p_loan_id in number) return number is\n    l_loan t010_loans%rowtype;\n  begin\n    select * into l_loan from t010_loans where loan_id = p_loan_id;\n    if l_loan.annual_pct = 0 then\n      return l_loan.principal / l_loan.months;\n    else\n      return t010_finance_pkg.payment(l_loan.principal, l_loan.annual_pct, l_loan.months);\n    end if;\n  end monthly_payment;\nend t010_loans_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1612,
+      "output_tokens": 209,
+      "seconds": 13.03,
+      "edited_objects": [
+        "T010_LOANS_API"
+      ],
+      "cause": "The underlying payment calculation in t010_finance_pkg.payment is likely using an incorrect formula or parameters, leading to wrong results for standard loans.",
+      "candidate": "create or replace package body t010_loans_api as\n  function monthly_payment(p_loan_id in number) return number is\n    l_loan t010_loans%rowtype;\n  begin\n    select * into l_loan from t010_loans where loan_id = p_loan_id;\n    if l_loan.annual_pct = 0 then\n      return l_loan.principal / l_loan.months;\n    else\n      return t010_finance_pkg.payment(l_loan.principal, l_loan.annual_pct, l_loan.months);\n    end if;\n  end monthly_payment;\nend t010_loans_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1874,
+      "output_tokens": 227,
+      "seconds": 11.52,
+      "edited_objects": [
+        "T010_LOANS_API"
+      ],
+      "cause": "The monthly_payment function is incorrectly calling t010_finance_pkg.payment, which seems to be using the annual percentage rate (APR) directly instead of the monthly interest rate, causing incorrect calculations for standard loans.",
+      "candidate": "create or replace package body t010_loans_api as\n  function monthly_payment(p_loan_id in number) return number is\n    l_loan t010_loans%rowtype;\n  begin\n    select * into l_loan from t010_loans where loan_id = p_loan_id;\n    if l_loan.annual_pct = 0 then\n      return l_loan.principal / l_loan.months;\n    else\n      return t010_finance_pkg.payment(l_loan.principal, l_loan.annual_pct / 12, l_loan.months);\n    end if;\n  end monthly_payment;\nend t010_loans_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

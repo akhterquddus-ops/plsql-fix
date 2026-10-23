@@ -1,0 +1,56 @@
+{
+  "task": "t004_late_fee",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T004_LOANS_API",
+    "T004_LOANS",
+    "T004_UTIL"
+  ],
+  "buggy_objects": [
+    "T004_UTIL"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T004_UTIL"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 985,
+  "wall_seconds": 18.38,
+  "timestamp": "2026-10-23T11:36:24",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 985,
+      "output_tokens": 118,
+      "seconds": 16.14,
+      "edited_objects": [
+        "T004_UTIL"
+      ],
+      "cause": "The days_late function in T004_UTIL incorrectly multiplies the number of overdue days by 24, leading to an inflated late fee calculation.",
+      "candidate": "create or replace package body t004_util as\n  function days_late(p_due in date, p_returned in date) return number is\n  begin\n    return greatest(trunc(p_returned) - trunc(p_due), 0);\n  end days_late;\nend t004_util;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

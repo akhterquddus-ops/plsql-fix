@@ -1,0 +1,81 @@
+{
+  "task": "t011_full_name",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T011_FULL_NAME"
+  ],
+  "buggy_objects": [
+    "T011_FULL_NAME"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 544,
+  "wall_seconds": 34.34,
+  "timestamp": "2026-10-23T12:23:30",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 544,
+      "output_tokens": 150,
+      "seconds": 12.16,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The concatenation logic does not handle null middle names correctly, leading to extra spaces when p_middle is null.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\n  v_full_name varchar2(4000);\nbegin\n  v_full_name := p_first || ' ' || NVL(p_middle || ' ', '') || p_last;\n  return trim(v_full_name);\nend t011_full_name;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 898,
+      "output_tokens": 121,
+      "seconds": 7.58,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The concatenation logic still produces double spaces when p_middle is null because the initial concatenation structure is flawed.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\nbegin\n  return trim(p_first || ' ' || NVL(p_middle, '') || ' ' || p_last);\nend t011_full_name;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1223,
+      "output_tokens": 128,
+      "seconds": 8.14,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The concatenation logic incorrectly inserts spaces around NVL(p_middle, '') even when p_middle is null, resulting in double spaces.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\nbegin\n  return trim(p_first || ' ' || NVL(p_middle, '') || ' ' || p_last);\nend t011_full_name;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

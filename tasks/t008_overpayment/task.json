@@ -1,0 +1,11 @@
+{
+  "id": "t008_overpayment",
+  "title": "Overpayments reported as paid",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "exception_handling",
+  "entry_object": "T008_PAYMENTS_API",
+  "buggy_objects": ["T008_INVOICE_PKG"],
+  "bug_report": "When a customer pays more than the open amount of an invoice, the payment screen says PAID, but the invoice balance does not change. Such payments should be rejected.",
+  "source": "self-written"
+}

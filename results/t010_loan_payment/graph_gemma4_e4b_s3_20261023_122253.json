@@ -1,0 +1,59 @@
+{
+  "task": "t010_loan_payment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T010_LOANS_API",
+    "T010_FINANCE_PKG",
+    "T010_LOANS",
+    "T010_MATH"
+  ],
+  "buggy_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T010_MATH",
+    "T010_FINANCE_PKG"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1581,
+  "wall_seconds": 37.36,
+  "timestamp": "2026-10-23T12:22:53",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 1
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1581,
+      "output_tokens": 494,
+      "seconds": 35.1,
+      "edited_objects": [
+        "T010_MATH",
+        "T010_FINANCE_PKG"
+      ],
+      "cause": "The annuity_factor function in T010_MATH does not correctly handle the case where p_periods is zero, leading to division by zero when p_rate is zero, and the payment calculation is incorrect for non-zero rates due to how the rate is passed.",
+      "candidate": "create or replace package body t010_math as\n  function annuity_factor(p_rate in number, p_periods in number) return number is\n  begin\n    if p_periods = 0 then\n      return 0; -- Annuity factor is 0 if there are no periods\n    elsif p_rate = 0 then\n      return 1 / p_periods;\n    end if;\n    return p_rate / (1 - power(1 + p_rate, -p_periods));\n  end annuity_factor;\nend t010_math;\n/\ncreate or replace package body t010_finance_pkg as\n  function payment(p_principal in number, p_annual_pct in number, p_months in number)\n    return number is\n  begin\n    -- Check for zero months to prevent division by zero in annuity_factor if it were not handled,\n    -- and to handle the interest-free case correctly if p_months is 0 (though p_months should be > 0 for a loan).\n    if p_months <= 0 then\n        return 0;\n    end if;\n\n    -- The interest-free case (p_annual_pct = 0) is handled by t010_math.annuity_factor(0, p_months) returning 1/p_months.\n    -- The formula for payment is P * [r / (1 - (1+r)^-n)]\n    -- If r=0, the factor is 1/n, so payment = P * (1/n).\n    -- If r>0, the factor is calculated by annuity_factor.\n    return round(p_principal * t010_math.annuity_factor(p_annual_pct / 1200, p_months), 2);\n  end payment;\nend t010_finance_pkg;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

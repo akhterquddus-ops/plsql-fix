@@ -1,0 +1,89 @@
+{
+  "task": "t009_shipping_weight",
+  "category": "cross_object",
+  "task_hops": 3,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T009_CHECKOUT_API",
+    "T009_ORDER_ITEMS",
+    "T009_SHIPPING_PKG",
+    "T009_PARCEL_PKG"
+  ],
+  "buggy_objects": [
+    "T009_UNITS"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1345,
+  "wall_seconds": 56.59,
+  "timestamp": "2026-10-23T11:49:09",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1345,
+      "output_tokens": 305,
+      "seconds": 26.25,
+      "edited_objects": [
+        "T009_CHECKOUT_API"
+      ],
+      "cause": "The order_total function incorrectly includes shipping costs for all orders, even if they contain only digital items (which should result in zero shipping cost).",
+      "candidate": "create or replace package body t009_checkout_api as\n  function order_total(p_order_id in number) return number is\n    l_items number;\n    l_has_physical_items boolean;\n  begin\n    select nvl(sum(price * qty), 0)\n      into l_items\n      from t009_order_items\n     where order_id = p_order_id;\n\n    -- Check if the order contains any physical items (assuming weight_g > 0 indicates physical goods)\n    select exinto l_has_physical_items\n      from t009_order_items\n     where order_id = p_order_id\n     and weight_g > 0\n     and ROWNUM = 1;\n\n    if l_has_physical_items = 'Y' then\n      return l_items + t009_shipping_pkg.shipping_cost(p_order_id);\n    else\n      return l_items; -- Only return item total if no physical items are present (digital goods)\n    end if;\n  end order_total;\nend t009_checkout_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY T009_CHECKOUT_API line 12, col 12: PL/SQL: ORA-00904: \"EXINTO\": invalid identifier",
+        "PACKAGE BODY T009_CHECKOUT_API line 12, col 5: PL/SQL: SQL Statement ignored",
+        "PACKAGE BODY T009_CHECKOUT_API line 18, col 29: PLS-00306: wrong number or types of arguments in call to '='",
+        "PACKAGE BODY T009_CHECKOUT_API line 18, col 5: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1814,
+      "output_tokens": 291,
+      "seconds": 12.43,
+      "edited_objects": [
+        "T009_CHECKOUT_API"
+      ],
+      "cause": "The use of EXINTO and subsequent boolean comparison was syntactically incorrect in PL/SQL.",
+      "candidate": "create or replace package body t009_checkout_api as\n  function order_total(p_order_id in number) return number is\n    l_items number;\n    l_has_physical_items boolean := false;\n  begin\n    select nvl(sum(price * qty), 0)\n      into l_items\n      from t009_order_items\n     where order_id = p_order_id;\n\n    -- Check if the order contains any physical items (assuming weight_g > 0 indicates physical goods)\n    select count(*)\n      into l_has_physical_items\n      from t009_order_items\n     where order_id = p_order_id\n     and weight_g > 0;\n\n    if l_has_physical_items > 0 then\n      return l_items + t009_shipping_pkg.shipping_cost(p_order_id);\n    else\n      return l_items; -- Only return item total if no physical items are present (digital goods)\n    end if;\n  end order_total;\nend t009_checkout_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY T009_CHECKOUT_API line 18, col 29: PLS-00306: wrong number or types of arguments in call to '>'",
+        "PACKAGE BODY T009_CHECKOUT_API line 18, col 5: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2199,
+      "output_tokens": 286,
+      "seconds": 11.59,
+      "edited_objects": [
+        "T009_CHECKOUT_API"
+      ],
+      "cause": "The comparison of the count result to a boolean variable was incorrect in PL/SQL.",
+      "candidate": "create or replace package body t009_checkout_api as\n  function order_total(p_order_id in number) return number is\n    l_items number;\n    l_has_physical_items number;\n  begin\n    select nvl(sum(price * qty), 0)\n      into l_items\n      from t009_order_items\n     where order_id = p_order_id;\n\n    -- Check if the order contains any physical items (assuming weight_g > 0 indicates physical goods)\n    select count(*)\n      into l_has_physical_items\n      from t009_order_items\n     where order_id = p_order_id\n     and weight_g > 0;\n\n    if l_has_physical_items > 0 then\n      return l_items + t009_shipping_pkg.shipping_cost(p_order_id);\n    else\n      return l_items; -- Only return item total if no physical items are present (digital goods)\n    end if;\n  end order_total;\nend t009_checkout_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

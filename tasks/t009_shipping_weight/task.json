@@ -1,0 +1,11 @@
+{
+  "id": "t009_shipping_weight",
+  "title": "Shipping charges far too high at checkout",
+  "category": "cross_object",
+  "hops": 3,
+  "bug_kind": "wrong_unit",
+  "entry_object": "T009_CHECKOUT_API",
+  "buggy_objects": ["T009_UNITS"],
+  "bug_report": "Checkout totals for physical goods include shipping charges that are much too high. Orders with only digital items are correct.",
+  "source": "self-written"
+}

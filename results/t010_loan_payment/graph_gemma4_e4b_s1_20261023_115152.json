@@ -1,0 +1,84 @@
+{
+  "task": "t010_loan_payment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T010_LOANS_API",
+    "T010_FINANCE_PKG",
+    "T010_LOANS",
+    "T010_MATH"
+  ],
+  "buggy_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1581,
+  "wall_seconds": 86.32,
+  "timestamp": "2026-10-23T11:51:52",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 1
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1581,
+      "output_tokens": 161,
+      "seconds": 23.44,
+      "edited_objects": [
+        "T010_MATH"
+      ],
+      "cause": "The annuity_factor function in T010_MATH does not correctly handle the case where p_rate is zero, leading to division by zero when p_periods is zero or when the logic is applied incorrectly for zero rate loans.",
+      "candidate": "create or replace package body t010_math as\n  function annuity_factor(p_rate in number, p_periods in number) return number is\n  begin\n    if p_rate = 0 then\n      return 1 / p_periods;\n    end if;\n    return p_rate / (1 - power(1 + p_rate, -p_periods));\n  end annuity_factor;\nend t010_math;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1795,
+      "output_tokens": 855,
+      "seconds": 37.75,
+      "edited_objects": [
+        "T010_MATH"
+      ],
+      "cause": "The annuity factor calculation in T010_MATH is incorrect for the standard loan payment formula when the rate is non-zero, leading to incorrect monthly payment values.",
+      "candidate": "create or replace package body t010_math as\n  function annuity_factor(p_rate in number, p_periods in number) return number is\n  begin\n    if p_rate = 0 then\n      return 1 / p_periods;\n    end if;\n    -- The standard formula for the annuity factor (or loan payment factor) is:\n    -- [rate / (1 - (1 + rate)^-periods)]\n    -- The original code was: p_rate / (1 - power(1 + p_rate, -p_periods))\n    -- This is mathematically equivalent to the standard formula, but the test failures suggest the expected values imply a different formula or rounding issue, or perhaps the input rate is being misinterpreted.\n    -- Given the test failures (e.g., 10661.85 vs 56864537.22), the factor calculation is likely wrong.\n    -- Let's use the standard formula for the payment factor: (rate * (1 + rate)^periods) / ((1 + rate)^periods - 1)\n    -- Or, sticking to the structure: rate / (1 - (1 + rate)^-periods)\n    -- If the test expects 10661.85 for P=100000, R=0.12/12=0.01, N=12, the factor should be 0.1066185.\n    -- Let's re-evaluate the original formula:\n    -- p_rate = 0.01, p_periods = 12\n    -- 0.01 / (1 - (1.01)^-12) = 0.01 / (1 - 0.88692043) = 0.01 / 0.11307957 = 0.088467...\n    -- The expected factor for 100000 principal to yield 10661.85 payment is 0.1066185.\n    -- The formula used in the original code is correct for the standard annuity factor, but the test cases seem to imply a different calculation or that the input rate (p_rate) is not the monthly rate but the annual rate divided by 12.\n    -- In T010_FINANCE_PKG, l_monthly_rate = p_annual_pct / 1200.\n    -- If p_annual_pct = 12, l_monthly_rate = 0.01.\n    -- The test expects 10661.85. If P=100000, Factor = 0.1066185.\n    -- Let's assume the intended formula for the factor is: (p_rate * (1 + p_rate)^p_periods) / ((1 + p_rate)^p_periods - 1)\n    -- This is equivalent to: (1 / (1 - (1 + p_rate)^-p_periods)) - 1 / p_periods\n    -- Let's use the standard formula that yields the expected result for the first test case:\n    -- Factor = (p_rate * (1 + p_rate)^p_periods) / ((1 + p_rate)^p_periods - 1)\n    return (p_rate * power(1 + p_rate, p_periods)) / (power(1 + p_rate, p_periods) - 1);\n  end annuity_factor;\nend t010_math;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 1
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 3280,
+      "output_tokens": 247,
+      "seconds": 18.67,
+      "edited_objects": [
+        "T010_MATH"
+      ],
+      "cause": "The annuity_factor function in T010_MATH fails for zero rate loans because the initial check was insufficient, and the formula used for non-zero rates was incorrect for matching the expected test outputs.",
+      "candidate": "create or replace package body t010_math as\n  function annuity_factor(p_rate in number, p_periods in number) return number is\n  begin\n    if p_rate = 0 then\n      return 1 / p_periods;\n    end if;\n    -- The standard formula for the payment factor (which is what annuity_factor should represent here) is:\n    -- P * [r * (1+r)^n] / [(1+r)^n - 1]\n    -- The factor is: [r * (1+r)^n] / [(1+r)^n - 1]\n    return (p_rate * power(1 + p_rate, p_periods)) / (power(1 + p_rate, p_periods) - 1);\n  end annuity_factor;\nend t010_math;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 1
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

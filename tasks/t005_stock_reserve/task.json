@@ -1,0 +1,11 @@
+{
+  "id": "t005_stock_reserve",
+  "title": "Orders rejected although stock is available",
+  "category": "cross_object",
+  "hops": 2,
+  "bug_kind": "null_handling",
+  "entry_object": "T005_ORDERS_API",
+  "buggy_objects": ["T005_STOCK_UTIL"],
+  "bug_report": "Some products are reported as out of stock even though the warehouse has plenty of them. It only happens for products that have never had a reservation.",
+  "source": "self-written"
+}

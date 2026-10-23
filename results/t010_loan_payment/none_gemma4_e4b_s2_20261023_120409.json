@@ -1,0 +1,81 @@
+{
+  "task": "t010_loan_payment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T010_LOANS_API"
+  ],
+  "buggy_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1053,
+  "wall_seconds": 66.05,
+  "timestamp": "2026-10-23T12:04:09",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 1
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1053,
+      "output_tokens": 205,
+      "seconds": 18.31,
+      "edited_objects": [
+        "T010_LOANS_API"
+      ],
+      "cause": "The monthly_payment function does not handle the case where the annual percentage is zero, leading to division by zero in the underlying payment calculation.",
+      "candidate": "create or replace package body t010_loans_api as\n  function monthly_payment(p_loan_id in number) return number is\n    l_loan t010_loans%rowtype;\n  begin\n    select * into l_loan from t010_loans where loan_id = p_loan_id;\n    if l_loan.annual_pct = 0 then\n      return l_loan.principal / l_loan.months;\n    else\n      return t010_finance_pkg.payment(l_loan.principal, l_loan.annual_pct, l_loan.months);\n    end if;\n  end monthly_payment;\nend t010_loans_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1612,
+      "output_tokens": 208,
+      "seconds": 11.93,
+      "edited_objects": [
+        "T010_LOANS_API"
+      ],
+      "cause": "The underlying payment calculation in t010_finance_pkg.payment is likely using an incorrect formula or parameters, causing incorrect results for standard loans.",
+      "candidate": "create or replace package body t010_loans_api as\n  function monthly_payment(p_loan_id in number) return number is\n    l_loan t010_loans%rowtype;\n  begin\n    select * into l_loan from t010_loans where loan_id = p_loan_id;\n    if l_loan.annual_pct = 0 then\n      return l_loan.principal / l_loan.months;\n    else\n      return t010_finance_pkg.payment(l_loan.principal, l_loan.annual_pct, l_loan.months);\n    end if;\n  end monthly_payment;\nend t010_loans_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1873,
+      "output_tokens": 608,
+      "seconds": 29.33,
+      "edited_objects": [
+        "T010_LOANS_API"
+      ],
+      "cause": "The original implementation relied on t010_finance_pkg.payment, which seems to be calculating the payment incorrectly based on the failing test values, suggesting the formula used in t010_finance_pkg.payment is wrong or the parameters passed are misinterpreted.",
+      "candidate": "create or replace package body t010_loans_api as\n  function monthly_payment(p_loan_id in number) return number is\n    l_loan t010_loans%rowtype;\n  begin\n    select * into l_loan from t010_loans where loan_id = p_loan_id;\n    if l_loan.annual_pct = 0 then\n      return l_loan.principal / l_loan.months;\n    else\n      -- Assuming the expected values imply a standard amortization formula calculation,\n      -- and since we cannot change t010_finance_pkg, we must implement the calculation here\n      -- if the test values are correct for standard loan amortization.\n      -- Standard Monthly Payment Formula: P * [r(1+r)^n] / [(1+r)^n - 1]\n      -- Where r = annual_pct / 12, n = months, P = principal.\n      -- Since the test values are significantly different from what a standard formula might yield\n      -- if the inputs are interpreted as standard, I will assume the test expects a simple interest calculation\n      -- or that the underlying package is flawed and needs to be bypassed/fixed by implementing the logic here.\n      -- Given the failure pattern, I will implement the standard PMT formula here to match expected results.\n      \n      DECLARE\n        v_monthly_rate NUMBER;\n        v_n_periods    NUMBER;\n        v_principal    NUMBER := l_loan.principal;\n        v_annual_pct   NUMBER := l_loan.annual_pct;\n        v_months       NUMBER := l_loan.months;\n        v_payment      NUMBER;\n      BEGIN\n        v_monthly_rate := v_annual_pct / 12;\n        v_n_periods    := v_months;\n        \n        IF v_monthly_rate = 0 THEN\n            RETURN v_principal / v_n_periods; -- Should be caught by the outer IF, but for safety\n        END IF;\n        \n        v_payment := v_principal * (v_monthly_rate * POWER((1 + v_monthly_rate), v_n_periods)) / (POWER((1 + v_monthly_rate), v_n_periods) - 1);\n        RETURN v_payment;\n      END;\n    end if;\n  end monthly_payment;\nend t010_loans_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

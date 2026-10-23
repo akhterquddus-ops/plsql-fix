@@ -1,0 +1,87 @@
+{
+  "task": "t010_loan_payment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T010_LOANS_API",
+    "T010_FINANCE_PKG",
+    "T010_LOANS",
+    "T010_MATH"
+  ],
+  "buggy_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 3,
+  "fixed_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1581,
+  "wall_seconds": 75.34,
+  "timestamp": "2026-10-23T12:05:27",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 1
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1581,
+      "output_tokens": 154,
+      "seconds": 17.49,
+      "edited_objects": [
+        "T010_MATH"
+      ],
+      "cause": "The annuity_factor function in T010_MATH does not correctly handle the case where p_rate is zero, leading to division by zero errors when calculating monthly payments for interest-free loans.",
+      "candidate": "create or replace package body t010_math as\n  function annuity_factor(p_rate in number, p_periods in number) return number is\n  begin\n    if p_rate = 0 then\n      return 1 / p_periods;\n    end if;\n    return p_rate / (1 - power(1 + p_rate, -p_periods));\n  end annuity_factor;\nend t010_math;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1788,
+      "output_tokens": 824,
+      "seconds": 40.67,
+      "edited_objects": [
+        "T010_FINANCE_PKG"
+      ],
+      "cause": "The calculation in T010_FINANCE_PKG.payment is using the wrong formula or scaling factor for the annuity calculation, leading to incorrect payment amounts.",
+      "candidate": "create or replace package body t010_finance_pkg as\n  function payment(p_principal in number, p_annual_pct in number, p_months in number)\n    return number is\n  begin\n    -- The standard loan payment formula is P * [r(1+r)^n] / [(1+r)^n - 1]\n    -- Where r is the monthly rate (p_annual_pct / 1200) and n is months.\n    -- The annuity factor is usually calculated as: r / (1 - (1 + r)^-n)\n    -- The existing implementation uses: p_principal * annuity_factor(p_months, l_monthly_rate)\n    -- The annuity_factor implementation seems to be designed for the factor itself, not the full payment.\n    -- Let's check the relationship: Payment = Principal * AnnuityFactor.\n    -- If annuity_factor returns r / (1 - (1 + r)^-n), then Payment = Principal * AnnuityFactor.\n    -- The failing tests suggest the annuity factor calculation is off by a large margin, or the formula used in T010_MATH is not what is expected for this context.\n    -- Given the failing tests, the issue is likely in how the rate is passed or how the factor is used.\n    -- The test failures suggest the expected payment is much smaller than the actual payment.\n    -- Let's assume the annuity_factor function is correct for the standard formula, and the issue is in how the rate is used or scaled.\n    -- The standard formula for payment (M) is: M = P * [r / (1 - (1+r)^-n)]\n    -- If T010_MATH.annuity_factor(p_rate, p_periods) returns r / (1 - (1 + r)^-n), then the current code is correct mathematically.\n    -- However, the test failures indicate a massive discrepancy.\n    -- Let's re-examine the annuity_factor definition: \"rate / (1 - (1 + rate)^-periods), or 1 / periods when the rate is 0.\"\n    -- This IS the standard factor.\n    -- The only way the results are so wildly different is if the rate passed to annuity_factor is wrong, or the principal is wrong, or the expected values are based on a different formula.\n    -- Since the bug report mentions division error for interest-free loans, and the previous fix addressed that, let's focus on the magnitude error.\n    -- The magnitude error suggests the rate used in the annuity factor calculation is too large, or the factor itself is too large.\n    -- The rate passed is l_monthly_rate = p_annual_pct / 1200. This is correct for monthly rate from annual percentage.\n    -- Let's modify the calculation to use the direct formula for payment instead of relying on the annuity factor, which might be misinterpreting its inputs/outputs.\n\n    if p_annual_pct = 0 then\n      return round(p_principal / p_months, 2);\n    end if;\n\n    l_monthly_rate := p_annual_pct / 1200;\n    -- Direct calculation of payment M = P * [r / (1 - (1+r)^-n)]\n    return round(p_principal * (l_monthly_rate / (1 - power(1 + l_monthly_rate, -p_months))), 2);\n  end payment;\nend t010_finance_pkg;\n/",
+      "compile_errors": [
+        "PACKAGE BODY T010_FINANCE_PKG line 31, col 5: PLS-00201: identifier 'L_MONTHLY_RATE' must be declared",
+        "PACKAGE BODY T010_FINANCE_PKG line 31, col 5: PL/SQL: Statement ignored",
+        "PACKAGE BODY T010_FINANCE_PKG line 33, col 33: PLS-00201: identifier 'L_MONTHLY_RATE' must be declared",
+        "PACKAGE BODY T010_FINANCE_PKG line 33, col 5: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2777,
+      "output_tokens": 230,
+      "seconds": 10.85,
+      "edited_objects": [
+        "T010_FINANCE_PKG"
+      ],
+      "cause": "The variable l_monthly_rate was used before being declared in the T010_FINANCE_PKG body when implementing the direct payment formula.",
+      "candidate": "create or replace package body t010_finance_pkg as\n  function payment(p_principal in number, p_annual_pct in number, p_months in number)\n    return number is\n    l_monthly_rate number;\n  begin\n    if p_annual_pct = 0 then\n      return round(p_principal / p_months, 2);\n    end if;\n\n    l_monthly_rate := p_annual_pct / 1200;\n    -- Direct calculation of payment M = P * [r / (1 - (1+r)^-n)]\n    return round(p_principal * (l_monthly_rate / (1 - power(1 + l_monthly_rate, -p_months))), 2);\n  end payment;\nend t010_finance_pkg;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "task": "t008_overpayment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T008_PAYMENTS_API",
+    "T008_INVOICE_PKG",
+    "T008_INVOICES"
+  ],
+  "buggy_objects": [
+    "T008_INVOICE_PKG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1098,
+  "wall_seconds": 57.69,
+  "timestamp": "2026-10-23T12:00:48",
+  "baseline": {
+    "tests": 4,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1098,
+      "output_tokens": 269,
+      "seconds": 22.02,
+      "edited_objects": [
+        "T008_PAYMENTS_API"
+      ],
+      "cause": "The exception handler in T008_PAYMENTS_API was not catching the application error raised by T008_INVOICE_PKG, leading to 'PAID' being returned even on overpayment.",
+      "candidate": "create or replace package body t008_payments_api as\n  function pay_invoice(p_invoice_id in number, p_amount in number) return varchar2 is\n    e_overpayment exception;\n    pragma exception_init(e_overpayment, -20010);\n  begin\n    t008_invoice_pkg.apply_payment(p_invoice_id, p_amount);\n    return 'PAID';\n  exception\n    when e_overpayment then\n      return 'REJECTED';\n    when others then\n      -- Catch application errors raised by T008_INVOICE_PKG (like -20010)\n      if sqlcode = -20010 then\n        return 'REJECTED';\n      else\n        -- Re-raise other unexpected errors\n        raise;\n      end if;\n  end pay_invoice;\nend t008_payments_api;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1600,
+      "output_tokens": 273,
+      "seconds": 13.29,
+      "edited_objects": [
+        "T008_PAYMENTS_API"
+      ],
+      "cause": "The exception handler in T008_PAYMENTS_API did not correctly catch the application error raised by T008_INVOICE_PKG, as the specific application error code (-20010) was not explicitly handled or propagated correctly.",
+      "candidate": "create or replace package body t008_payments_api as\n  function pay_invoice(p_invoice_id in number, p_amount in number) return varchar2 is\n    e_overpayment exception;\n    pragma exception_init(e_overpayment, -20010);\n  begin\n    t008_invoice_pkg.apply_payment(p_invoice_id, p_amount);\n    return 'PAID';\n  exception\n    when e_overpayment then\n      return 'REJECTED';\n    when others then\n      -- Check if the raised error matches the expected overpayment error (-20010)\n      if sqlcode = -20010 then\n        return 'REJECTED';\n      else\n        -- Re-raise any other unexpected errors\n        raise;\n      end if;\n  end pay_invoice;\nend t008_payments_api;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2106,
+      "output_tokens": 302,
+      "seconds": 15.94,
+      "edited_objects": [
+        "T008_PAYMENTS_API"
+      ],
+      "cause": "The exception handler in T008_PAYMENTS_API was not correctly catching the application error raised by T008_INVOICE_PKG because the exception was not explicitly declared to catch application errors, and the general 'others' block was not sufficient or correctly structured to handle the specific application error (-20010) raised by T008_INVOICE_PKG.",
+      "candidate": "create or replace package body t008_payments_api as\n  function pay_invoice(p_invoice_id in number, p_amount in number) return varchar2 is\n    e_overpayment exception;\n    pragma exception_init(e_overpayment, -20010);\n  begin\n    t008_invoice_pkg.apply_payment(p_invoice_id, p_amount);\n    return 'PAID';\n  exception\n    when e_overpayment then\n      return 'REJECTED';\n    when others then\n      -- Check if the raised error matches the expected overpayment error (-20010)\n      if sqlcode = -20010 then\n        return 'REJECTED';\n      else\n        -- Re-raise any other unexpected errors\n        raise;\n      end if;\n  end pay_invoice;\nend t008_payments_api;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

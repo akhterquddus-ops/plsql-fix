@@ -1,0 +1,85 @@
+{
+  "task": "t011_full_name",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T011_FULL_NAME"
+  ],
+  "buggy_objects": [
+    "T011_FULL_NAME"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 544,
+  "wall_seconds": 34.4,
+  "timestamp": "2026-10-23T11:52:29",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 544,
+      "output_tokens": 150,
+      "seconds": 11.0,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The concatenation logic does not handle null middle names correctly, leading to extra spaces when p_middle is null.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\n  v_full_name varchar2(4000);\nbegin\n  v_full_name := p_first || ' ' || NVL(p_middle || ' ', '') || p_last;\n  return trim(v_full_name);\nend t011_full_name;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 898,
+      "output_tokens": 119,
+      "seconds": 6.68,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The logic still produces double spaces when p_middle is null because the concatenation structure is flawed.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\nbegin\n  return trim(p_first || ' ' || NVL(p_middle, '') || ' ' || p_last);\nend t011_full_name;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1221,
+      "output_tokens": 183,
+      "seconds": 10.21,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The concatenation logic needs to conditionally build the string to avoid extra spaces when p_middle is null.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\n  v_parts sys.odci_stringlist;\nbegin\n  v_parts := sys.odci_stringlist();\n  v_parts.extend(p_first);\n  if p_middle is not null then\n    v_parts.extend(p_middle);\n  end if;\n  v_parts.extend(p_last);\n  return trim(v_parts.join(' '));\nend t011_full_name;\n/",
+      "compile_errors": [
+        "FUNCTION T011_FULL_NAME line 6, col 11: PLS-00201: identifier 'SYS.ODCI_STRINGLIST' must be declared",
+        "FUNCTION T011_FULL_NAME line 0, col 0: PL/SQL: Compilation unit analysis terminated"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

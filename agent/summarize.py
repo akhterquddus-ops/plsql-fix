@@ -25,7 +25,16 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SETTING_ORDER = ["none", "dense", "hybrid", "graph", "hybrid_graph"]
+SETTING_ORDER = ["none", "dense", "hybrid", "graph", "graph_h3", "graph_h4", "hybrid_graph"]
+
+
+def setting_label(d):
+    """'graph' for the default depth (2); 'graph_h3' etc. for other depths."""
+    s = d["setting"]
+    hops = d.get("graph_hops")
+    if s in ("graph", "hybrid_graph") and hops not in (None, 2):
+        return f"{s}_h{hops}"
+    return s
 
 
 def load_runs(include_all, temperature):
@@ -47,7 +56,7 @@ def load_runs(include_all, temperature):
             "file": f.relative_to(ROOT).as_posix(),
             "task": d["task"],
             "category": d.get("category", "unknown"),
-            "setting": d["setting"],
+            "setting": setting_label(d),
             "model": d.get("model"),
             "device": d.get("device"),
             "seed": d.get("seed"),

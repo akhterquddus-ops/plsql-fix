@@ -1,0 +1,11 @@
+{
+  "id": "t006_income_tax",
+  "title": "Income tax too high in the middle bracket",
+  "category": "local",
+  "hops": 0,
+  "bug_kind": "wrong_formula",
+  "entry_object": "T006_INCOME_TAX",
+  "buggy_objects": ["T006_INCOME_TAX"],
+  "bug_report": "Employees earning between 600,000 and 1,200,000 a year are taxed much more than the published tax table says.",
+  "source": "self-written"
+}

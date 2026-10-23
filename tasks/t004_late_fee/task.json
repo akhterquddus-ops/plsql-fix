@@ -1,0 +1,11 @@
+{
+  "id": "t004_late_fee",
+  "title": "Library late fees far too high",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "wrong_unit",
+  "entry_object": "T004_LOANS_API",
+  "buggy_objects": ["T004_UTIL"],
+  "bug_report": "Members returning a book a few days late are charged huge late fees. Books returned on time or early correctly cost nothing.",
+  "source": "self-written"
+}

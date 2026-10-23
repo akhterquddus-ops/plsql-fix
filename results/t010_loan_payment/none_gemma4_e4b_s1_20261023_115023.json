@@ -1,0 +1,86 @@
+{
+  "task": "t010_loan_payment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T010_LOANS_API"
+  ],
+  "buggy_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1052,
+  "wall_seconds": 71.25,
+  "timestamp": "2026-10-23T11:50:23",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 1
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1052,
+      "output_tokens": 206,
+      "seconds": 18.25,
+      "edited_objects": [
+        "T010_LOANS_API"
+      ],
+      "cause": "The monthly_payment function does not handle the case where the interest rate is zero, leading to division by zero in the underlying finance package call.",
+      "candidate": "create or replace package body t010_loans_api as\n  function monthly_payment(p_loan_id in number) return number is\n    l_loan t010_loans%rowtype;\n  begin\n    select * into l_loan from t010_loans where loan_id = p_loan_id;\n    if l_loan.annual_pct = 0 then\n      return l_loan.principal / l_loan.months;\n    else\n      return t010_finance_pkg.payment(l_loan.principal, l_loan.annual_pct, l_loan.months);\n    end if;\n  end monthly_payment;\nend t010_loans_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1612,
+      "output_tokens": 341,
+      "seconds": 17.84,
+      "edited_objects": [
+        "T010_LOANS_API"
+      ],
+      "cause": "The implementation of monthly_payment is likely using incorrect parameters or the underlying finance package is not being called correctly for the expected results, suggesting the formula used in the original code (or the assumed formula) is wrong for the test cases.",
+      "candidate": "create or replace package body t010_loans_api as\n  function monthly_payment(p_loan_id in number) return number is\n    l_loan t010_loans%rowtype;\n  begin\n    select * into l_loan from t010_loans where loan_id = p_loan_id;\n    if l_loan.annual_pct = 0 then\n      return l_loan.principal / l_loan.months;\n    else\n      -- Assuming the payment function expects the rate as a decimal (e.g., 12% -> 0.12)\n      -- and that the test cases imply a standard amortization calculation.\n      -- Since the original code called t010_finance_pkg.payment(l_loan.principal, l_loan.annual_pct, l_loan.months),\n      -- and the results are wildly off, I must assume the rate passed to the finance package needs to be divided by 100.\n      return t010_finance_pkg.payment(l_loan.principal, l_loan.annual_pct / 100, l_loan.months);\n    end if;\n  end monthly_payment;\nend t010_loans_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2310,
+      "output_tokens": 471,
+      "seconds": 28.55,
+      "edited_objects": [
+        "T010_LOANS_API"
+      ],
+      "cause": "The underlying finance package function t010_finance_pkg.payment is likely expecting the annual percentage rate as a decimal (e.g., 0.12 for 12%), but the test cases suggest that the expected results are derived from a calculation where the rate is used directly or the principal/months are different than assumed. Given the massive discrepancy, the most likely fix is that the original code was correct in passing the percentage as is, but the test expectations are based on a specific formula that requires the rate to be used as a decimal (rate/100) for the calculation, which was already attempted, or the test expectations are based on a simple interest calculation if the finance package is not standard. Reverting to the original structure but ensuring the division by zero is handled, and assuming the finance package expects the percentage as is, as per the original code structure, but fixing the zero division is the only robust change based on the bug report. However, since the previous attempt failed, I will assume the finance package expects the rate as a decimal (rate/100) and that the test expectations are correct, meaning the previous attempt was the correct direction, but perhaps the division by 100 was applied incorrectly or the test expectations are based on a different formula. I will revert to the original call structure but ensure the zero division is handled, as the previous attempt to fix the rate scaling failed to meet expectations.",
+      "candidate": "create or replace package body t010_loans_api as\n  function monthly_payment(p_loan_id in number) return number is\n    l_loan t010_loans%rowtype;\n  begin\n    select * into l_loan from t010_loans where loan_id = p_loan_id;\n    if l_loan.annual_pct = 0 then\n      return l_loan.principal / l_loan.months;\n    else\n      return t010_finance_pkg.payment(l_loan.principal, l_loan.annual_pct, l_loan.months);\n    end if;\n  end monthly_payment;\nend t010_loans_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

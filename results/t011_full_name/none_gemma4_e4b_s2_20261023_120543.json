@@ -1,0 +1,54 @@
+{
+  "task": "t011_full_name",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T011_FULL_NAME"
+  ],
+  "buggy_objects": [
+    "T011_FULL_NAME"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T011_FULL_NAME"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 544,
+  "wall_seconds": 13.42,
+  "timestamp": "2026-10-23T12:05:43",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 544,
+      "output_tokens": 156,
+      "seconds": 11.19,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The concatenation logic does not handle null middle names correctly, leading to double spaces when p_middle is null.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\n  v_full_name varchar2(4000);\nbegin\n  v_full_name := p_first || ' ' || p_middle || ' ' || p_last;\n  return trim(regexp_replace(v_full_name, '\\s+', ' '));\nend t011_full_name;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

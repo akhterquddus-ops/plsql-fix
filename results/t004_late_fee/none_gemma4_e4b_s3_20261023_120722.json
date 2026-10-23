@@ -1,0 +1,76 @@
+{
+  "task": "t004_late_fee",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T004_LOANS_API"
+  ],
+  "buggy_objects": [
+    "T004_UTIL"
+  ],
+  "buggy_object_in_context": false,
+  "solved": true,
+  "attempts_used": 3,
+  "fixed_objects": [
+    "T004_LOANS_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 729,
+  "wall_seconds": 59.31,
+  "timestamp": "2026-10-23T12:07:22",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 729,
+      "output_tokens": 249,
+      "seconds": 16.3,
+      "edited_objects": [
+        "T004_LOANS_API"
+      ],
+      "cause": "The late_fee function incorrectly calculates the number of days late by using the returned_date as the second argument to days_late, which should be the actual return date relative to the due date.",
+      "candidate": "create or replace package body t004_loans_api as\n  c_daily_fee constant number := 0.50;\n\n  function late_fee(p_loan_id in number) return number is\n    l_due      t004_loans.due_date%type;\n    l_returned t004_loans.returned_date%type;\n  begin\n    select due_date, returned_date\n      into l_due, l_returned\n      from t004_loans\n     where loan_id = p_loan_id;\n    if l_returned is null then\n      return 0;\n    end if;\n    return t004_util.days_late(l_due, l_returned) * c_daily_fee;\n  end late_fee;\nend t004_loans_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1031,
+      "output_tokens": 536,
+      "seconds": 24.11,
+      "edited_objects": [],
+      "cause": "The days_late function is likely calculating the difference incorrectly when the returned_date is after the due_date, or the test expects the difference in days, but the implementation is flawed. Assuming t004_util.days_late(start_date, end_date) calculates end_date - start_date, and the test expects 3 days late to result in 3 days, the issue might be how days_late is being called or how the dates are interpreted. Given the test expects 1.5 (3 days * 0.50) and gets 36, it suggests days_late is returning 72 instead of 3. If days_late(due_date, returned_date) is used, and the loan is 3 days late, the difference should be 3. The only way to get 36 is if days_late returns 72. I will assume the logic for calculating days late should be based on the difference between returned_date and due_date, and that t004_util.days_late is flawed or expects arguments in a different order/context. Since the test expects 3 days late to yield 1.5, I will explicitly calculate the difference in days here to bypass any potential issue in t004_util.days_late, assuming standard date arithmetic where (returned_date - due_date) gives the number of days late if returned_date > due_date.",
+      "candidate": "function late_fee(p_loan_id in number) return number is\n    l_due      t004_loans.due_date%type;\n    l_returned t004_loans.returned_date%type;\n    l_days_late number;\n  begin\n    select due_date, returned_date\n      into l_due, l_returned\n      from t004_loans\n     where loan_id = p_loan_id;\n    if l_returned is null then\n      return 0;\n    end if;\n    l_days_late := TRUNC(l_returned - l_due);\n    if l_days_late < 0 then\n        l_days_late := 0; -- Should not happen if returned_date >= due_date for late fees, but safe guard.\n    end if;\n    return l_days_late * c_daily_fee;\n  end late_fee;\n/",
+      "outcome": "invalid_statement"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1599,
+      "output_tokens": 332,
+      "seconds": 12.57,
+      "edited_objects": [
+        "T004_LOANS_API"
+      ],
+      "cause": "The original implementation relied on t004_util.days_late, which returned an incorrect value (72 instead of 3) for a 3-day late scenario, leading to a fee of 36 instead of 1.5. The fix replaces the call to t004_util.days_late with direct date arithmetic to calculate the number of overdue days.",
+      "candidate": "create or replace package body t004_loans_api as\n  c_daily_fee constant number := 0.50;\n\n  function late_fee(p_loan_id in number) return number is\n    l_due      t004_loans.due_date%type;\n    l_returned t004_loans.returned_date%type;\n    l_days_late number;\n  begin\n    select due_date, returned_date\n      into l_due, l_returned\n      from t004_loans\n     where loan_id = p_loan_id;\n    if l_returned is null then\n      return 0;\n    end if;\n    l_days_late := TRUNC(l_returned - l_due);\n    if l_days_late < 0 then\n        l_days_late := 0;\n    end if;\n    return l_days_late * c_daily_fee;\n  end late_fee;\nend t004_loans_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

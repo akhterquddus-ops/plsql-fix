@@ -1,0 +1,11 @@
+{
+  "id": "t007_region_summary",
+  "title": "Region summary counts customers from other regions",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "wrong_filter",
+  "entry_object": "T007_REPORTS_API",
+  "buggy_objects": ["T007_CUSTOMER_Q"],
+  "bug_report": "The regional summary sometimes shows more engaged customers than the region has in total, and even shows engaged customers for regions with no customers.",
+  "source": "self-written"
+}

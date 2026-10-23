@@ -1,0 +1,86 @@
+{
+  "task": "t009_shipping_weight",
+  "category": "cross_object",
+  "task_hops": 3,
+  "setting": "none",
+  "graph_hops": null,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "T009_UNITS"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 753,
+  "wall_seconds": 69.0,
+  "timestamp": "2026-10-23T12:02:01",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 753,
+      "output_tokens": 283,
+      "seconds": 18.66,
+      "edited_objects": [
+        "T009_CHECKOUT_API"
+      ],
+      "cause": "The order_total function incorrectly adds shipping cost for all orders, even if the items are digital.",
+      "candidate": "create or replace package body t009_checkout_api as\n  function order_total(p_order_id in number) return number is\n    l_items number;\n    l_is_physical boolean;\n  begin\n    -- Check if the order contains any physical items\n    select max(CASE WHEN item_type = 'PHYSICAL' THEN 1 ELSE 0 END)\n      into l_is_physical\n      from t009_order_items\n     where order_id = p_order_id;\n\n    -- Calculate item total\n    select nvl(sum(price * qty), 0)\n      into l_items\n      from t009_order_items\n     where order_id = p_order_id;\n\n    -- Add shipping cost only if there are physical items\n    if l_is_physical = 1 then\n      return l_items + t009_shipping_pkg.shipping_cost(p_order_id);\n    else\n      return l_items;\n    end if;\n  end order_total;\nend t009_checkout_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY T009_CHECKOUT_API line 7, col 26: PL/SQL: ORA-00904: \"ITEM_TYPE\": invalid identifier",
+        "PACKAGE BODY T009_CHECKOUT_API line 7, col 5: PL/SQL: SQL Statement ignored",
+        "PACKAGE BODY T009_CHECKOUT_API line 19, col 22: PLS-00306: wrong number or types of arguments in call to '='",
+        "PACKAGE BODY T009_CHECKOUT_API line 19, col 5: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1198,
+      "output_tokens": 434,
+      "seconds": 20.84,
+      "edited_objects": [
+        "T009_CHECKOUT_API"
+      ],
+      "cause": "The order_total function incorrectly assumes the existence of an 'item_type' column in t009_order_items and uses incorrect syntax for conditional logic.",
+      "candidate": "create or replace package body t009_checkout_api as\n  function order_total(p_order_id in number) return number is\n    l_items number;\n    l_has_physical_items number;\n  begin\n    -- Check if the order contains any physical items by checking for items that are not digital.\n    -- Assuming digital items are identifiable, if we cannot assume a column, we must rely on the shipping package logic or assume a default.\n    -- Based on the bug report (\"Orders with only digital items are correct\"), we need a way to distinguish.\n    -- Since the original code only summed prices, and the failure implies shipping is added when it shouldn't be for digital-only orders,\n    -- we must check for the presence of physical items. Let's assume a column 'item_type' exists and is 'PHYSICAL' or 'DIGITAL'.\n    select count(*)\n      into l_has_physical_items\n      from t009_order_items\n     where order_id = p_order_id\n       and item_type = 'PHYSICAL'; -- Assuming 'PHYSICAL' identifies physical goods\n    \n    -- Calculate item total\n    select nvl(sum(price * qty), 0)\n      into l_items\n      from t009_order_items\n     where order_id = p_order_id;\n\n    -- Add shipping cost only if there are physical items\n    if l_has_physical_items > 0 then\n      return l_items + t009_shipping_pkg.shipping_cost(p_order_id);\n    else\n      return l_items;\n    end if;\n  end order_total;\nend t009_checkout_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY T009_CHECKOUT_API line 15, col 12: PL/SQL: ORA-00904: \"ITEM_TYPE\": invalid identifier",
+        "PACKAGE BODY T009_CHECKOUT_API line 11, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1728,
+      "output_tokens": 489,
+      "seconds": 23.0,
+      "edited_objects": [
+        "T009_CHECKOUT_API"
+      ],
+      "cause": "The order_total function attempts to check for physical items using a non-existent 'item_type' column in t009_order_items.",
+      "candidate": "create or replace package body t009_checkout_api as\n  function order_total(p_order_id in number) return number is\n    l_items number;\n    l_has_physical_items number;\n  begin\n    -- To fix the compilation error, we must infer how to determine if an order has physical goods without knowing the schema.\n    -- Given the original code only summed prices, and the bug is related to shipping for physical goods,\n    -- we must assume that t009_shipping_pkg.shipping_cost(p_order_id) returns 0 if no physical items are present,\n    -- OR we must find a way to check for physical items.\n    -- Since the test failures suggest shipping is being added when it shouldn't be (digital-only),\n    -- we must check if the shipping cost is non-zero, or if the shipping package itself indicates physical goods.\n    -- A safer assumption based on the bug description is that the shipping cost function should only be called/added if physical items exist.\n    -- Since we cannot query item_type, we will check if the shipping cost is greater than zero, which implies physical goods were detected by the shipping package.\n    \n    select nvl(sum(price * qty), 0)\n      into l_items\n      from t009_order_items\n     where order_id = p_order_id;\n\n    -- Check if shipping cost is greater than 0. If it is, it implies physical goods were present and shipping was calculated.\n    -- If it's 0, we assume it's digital-only or shipping is free.\n    if t009_shipping_pkg.shipping_cost(p_order_id) > 0 then\n      return l_items + t009_shipping_pkg.shipping_cost(p_order_id);\n    else\n      return l_items;\n    end if;\n  end order_total;\nend t009_checkout_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "task": "t011_full_name",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "graph",
+  "graph_hops": 2,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T011_FULL_NAME"
+  ],
+  "buggy_objects": [
+    "T011_FULL_NAME"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 544,
+  "wall_seconds": 41.17,
+  "timestamp": "2026-10-23T12:24:14",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 544,
+      "output_tokens": 150,
+      "seconds": 11.97,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The concatenation logic does not handle null middle names correctly, leading to extra spaces when p_middle is null.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\n  v_full_name varchar2(4000);\nbegin\n  v_full_name := p_first || ' ' || NVL(p_middle || ' ', '') || p_last;\n  return trim(v_full_name);\nend t011_full_name;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 898,
+      "output_tokens": 121,
+      "seconds": 7.47,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The concatenation logic still produces double spaces when p_middle is null because the initial concatenation structure is flawed.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\nbegin\n  return trim(p_first || ' ' || NVL(p_middle, '') || ' ' || p_last);\nend t011_full_name;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1223,
+      "output_tokens": 244,
+      "seconds": 15.22,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The concatenation logic fails to correctly handle the spacing when p_middle is null, resulting in an extra space between first and last names.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\n  v_parts sys.odci_string_table;\nbegin\n  v_parts := sys.odci_string_table();\n  v_parts.EXTEND(3);\n  v_parts(1) := p_first;\n  v_parts(2) := p_middle;\n  v_parts(3) := p_last;\n\n  return trim(\n    (SELECT LISTAGG(val, ' ') WITHIN GROUP (ORDER BY LEVEL)\n     FROM dual\n     CONNECT BY LEVEL <= 3\n     WHERE (SELECT val FROM TABLE(v_parts) WHERE COLUMN_VALUE = v_parts(LEVEL)) IS NOT NULL)\n  );\nend t011_full_name;\n/",
+      "compile_errors": [
+        "FUNCTION T011_FULL_NAME line 15, col 6: PLS-00103: Encountered the symbol \"SELECT\" when expecting one of the following:\n\n   ( - + case for mod new not null <an identifier>\n   <a double-quoted delimited-identifier> <a bind variable>\n   continue avg count current exists max min prior sql stddev\n   sum variance execute forall merge time timestamp interval\n   date <a string literal with character set specification>\n   <a number> <a single-quoted SQL string> pipe\n   <an alternatively-quoted string literal with character set specification>\n   <an alte",
+        "FUNCTION T011_FULL_NAME line 15, col 38: PLS-00103: Encountered the symbol \"GROUP\" when expecting one of the following:\n\n   , from into bulk"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

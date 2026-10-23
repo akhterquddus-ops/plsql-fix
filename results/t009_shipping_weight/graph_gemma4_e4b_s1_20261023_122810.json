@@ -1,0 +1,90 @@
+{
+  "task": "t009_shipping_weight",
+  "category": "cross_object",
+  "task_hops": 3,
+  "setting": "graph",
+  "graph_hops": 3,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T009_CHECKOUT_API",
+    "T009_ORDER_ITEMS",
+    "T009_SHIPPING_PKG",
+    "T009_PARCEL_PKG",
+    "T009_UNITS"
+  ],
+  "buggy_objects": [
+    "T009_UNITS"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1476,
+  "wall_seconds": 149.43,
+  "timestamp": "2026-10-23T12:28:10",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1476,
+      "output_tokens": 192,
+      "seconds": 24.23,
+      "edited_objects": [
+        "T009_SHIPPING_PKG"
+      ],
+      "cause": "The shipping cost calculation in T009_SHIPPING_PKG incorrectly uses CEIL() on the weight in kg, leading to inflated charges for physical goods.",
+      "candidate": "create or replace package body t009_shipping_pkg as\n  c_base   constant number := 200;\n  c_per_kg constant number := 50;\n\n  function shipping_cost(p_order_id in number) return number is\n    l_kg number := t009_parcel_pkg.parcel_weight_kg(p_order_id);\n  begin\n    if l_kg = 0 then\n      return 0;\n    end if;\n    return c_base + c_per_kg * l_kg;\n  end shipping_cost;\nend t009_shipping_pkg;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1982,
+      "output_tokens": 1278,
+      "seconds": 67.01,
+      "edited_objects": [
+        "T009_SHIPPING_PKG"
+      ],
+      "cause": "The shipping cost calculation in T009_SHIPPING_PKG is still incorrect because the base charge (200) is not being subtracted when calculating the expected total in the tests, or the weight calculation is flawed relative to the expected totals. Based on the failing tests, the expected total seems to be (Item Total) + (Shipping Cost).",
+      "candidate": "create or replace package body t009_shipping_pkg as\n  c_base   constant number := 200;\n  c_per_kg constant number := 50;\n\n  function shipping_cost(p_order_id in number) return number is\n    l_kg number := t009_parcel_pkg.parcel_weight_kg(p_order_id);\n  begin\n    if l_kg = 0 then\n      return 0;\n    end if;\n    -- Reverting to the original logic but removing the base charge to see if it matches the expected totals, as the original logic was deemed too high.\n    -- Original: return c_base + c_per_kg * ceil(l_kg);\n    -- New attempt: return c_per_kg * ceil(l_kg);\n    return c_per_kg * ceil(l_kg);\n  end shipping_cost;\nend t009_shipping_pkg;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 3574,
+      "output_tokens": 927,
+      "seconds": 51.53,
+      "edited_objects": [
+        "T009_SHIPPING_PKG"
+      ],
+      "cause": "The shipping cost calculation in T009_SHIPPING_PKG is still incorrect because the expected totals imply a specific shipping cost structure that is not met by the current implementation, likely related to how the base charge interacts with the weight calculation.",
+      "candidate": "create or replace package body t009_shipping_pkg as\n  c_base   constant number := 200;\n  c_per_kg constant number := 50;\n\n  function shipping_cost(p_order_id in number) return number is\n    l_kg number := t009_parcel_pkg.parcel_weight_kg(p_order_id);\n  begin\n    if l_kg = 0 then\n      return 0;\n    end if;\n    -- Based on the failing tests (Test 1: Actual 1750 vs Expected 1300; Test 2: Actual 450 vs Expected 500),\n    -- the shipping cost must be lower than what is calculated.\n    -- Test 1: Item Total (1500) + Shipping = 1750 => Shipping = 250. (Original: 300)\n    -- Test 2: Item Total (750) + Shipping = 450 => Shipping = -300 (Impossible).\n    -- Re-evaluating Test 2: If Expected Total is 500, and Item Total is 750, this is impossible unless the item total is wrong.\n    -- If we assume the expected shipping cost for Test 2 (0.75kg -> 1kg) is 250 (original), and the expected total is 500, then item total must be 250.\n    -- If we assume the expected shipping cost for Test 1 (1.5kg -> 2kg) is 150 (to make 1500+150=1650, still not 1300), or 100 (to make 1500+100=1600).\n    -- The only way to hit 1300 and 500 is if the item totals are much lower than calculated, or the shipping cost is extremely low.\n    -- Let's assume the shipping cost should be calculated as: Base charge + (Weight * Multiplier) but only if weight > 0, and the multiplier is different.\n    -- For Test 1 (2kg): Shipping = 1300 - 1000 (assumed item total) = 300. (Matches original logic if item total was 1000).\n    -- For Test 2 (1kg): Shipping = 500 - 250 (assumed item total) = 250. (Matches original logic if item total was 250).\n    -- The original logic (c_base + c_per_kg * ceil(l_kg)) seems to be what the tests *expect* if the item totals were different.\n    -- Since the bug report states shipping is too high, and the tests show the actual total is higher than expected, the shipping cost is too high.\n    -- Let's assume the base charge should only apply if weight is above a certain threshold, or that the multiplier is wrong.\n    -- If we use the original logic but change the base charge to 0:\n    -- Test 1: 50 * 2 = 100. Total = 1600. (Actual 1750, Expected 1300)\n    -- Test 2: 50 * 1 = 50. Total = 800. (Actual 450, Expected 500)\n    -- The only way to pass is if the shipping cost is significantly reduced. Let's try using the actual weight (l_kg) instead of CEIL(l_kg) AND removing the base charge, as this is the most direct fix for \"too high\".\n    return c_per_kg * l_kg;\n  end shipping_cost;\nend t009_shipping_pkg;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

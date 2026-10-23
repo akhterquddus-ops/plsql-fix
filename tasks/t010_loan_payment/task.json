@@ -1,0 +1,11 @@
+{
+  "id": "t010_loan_payment",
+  "title": "Monthly loan payments wrong or failing",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "swapped_arguments",
+  "entry_object": "T010_LOANS_API",
+  "buggy_objects": ["T010_FINANCE_PKG"],
+  "bug_report": "The monthly payment shown for loans is nonsense, and for interest-free loans the screen fails with a division error.",
+  "source": "self-written"
+}

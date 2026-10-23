@@ -5,7 +5,10 @@ Settings (what the model is shown besides the bug report and the failing test ou
   none   source of the entry object only (the unit the tests call)
   graph  entry object + every object reachable from it in Oracle's dependency graph
          (USER_DEPENDENCIES), up to --hops levels
-  (dense, hybrid, hybrid_graph: added in the retrieval step)
+  dense        entry object + top-k objects found by bge-m3 embedding search over the
+               code of ALL tasks (other tasks act as distractors)
+  hybrid       as dense, but scores = alpha * dense + (1 - alpha) * BM25 (alpha 0.7)
+  hybrid_graph graph objects + hybrid search results
 
 For one task folder:
   1. Reset: run 00_setup.sql (tables), compile 01_buggy.sql and 02_test.sql.
@@ -32,6 +35,8 @@ from pathlib import Path
 import oracledb
 import requests
 
+import retrieval
+
 ROOT = Path(__file__).resolve().parent.parent
 
 DB_USER = os.getenv("PLSQLFIX_DB_USER", "plsqlfix")
@@ -39,7 +44,7 @@ DB_PASSWORD = os.getenv("PLSQLFIX_DB_PASSWORD", "plsqlfix123")
 DB_DSN = os.getenv("PLSQLFIX_DB_DSN", "localhost:1521/FREEPDB1")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 
-SETTINGS = ("none", "graph")
+SETTINGS = ("none", "dense", "hybrid", "graph", "hybrid_graph")
 
 # SQL*Plus-only commands that must not be sent to the database.
 SQLPLUS_ONLY = re.compile(
@@ -254,26 +259,63 @@ def dependency_closure(conn, start, hops):
 
 
 # --------------------------------------------------------------------------- context
-def build_context(conn, task, setting, hops):
-    """Return (prompt_section_text, [object names shown])."""
+def graph_section(conn, task, hops):
+    """(text, names) for objects reachable from the entry object in USER_DEPENDENCIES."""
+    entry, related, names = task["entry"], [], []
+    for name, typ, depth in dependency_closure(conn, entry, hops):
+        src = task["codebase"].get(name)
+        code = as_script(src) if src else task["tables"].get(name)
+        if not code:
+            continue
+        hop = "hop" if depth == 1 else "hops"
+        related.append(f"-- {typ.lower()} {name} ({depth} {hop} from {entry})\n{code}")
+        names.append(name)
+    if not related:
+        return "", []
+    return ("Related objects from the Oracle dependency graph:\n```sql\n"
+            + "\n\n".join(related) + "\n```"), names
+
+
+def search_section(task, query, method, k, alpha, exclude):
+    """(text, names, hits) for the top-k objects found by code search."""
+    hits = retrieval.search(_corpus(), query, method, k=k, alpha=alpha, exclude=exclude)
+    if not hits:
+        return "", [], []
+    blocks = [f"-- {'table' if h['kind'] == 'table' else 'object'} {h['name']} "
+              f"(search rank {i}, score {h['score']:.2f})\n{h['text']}"
+              for i, h in enumerate(hits, 1)]
+    return ("Related code found by searching the application:\n```sql\n"
+            + "\n\n".join(blocks) + "\n```"), [h["name"] for h in hits], hits
+
+
+_CORPUS = None
+
+
+def _corpus():
+    global _CORPUS
+    if _CORPUS is None:
+        _CORPUS = retrieval.build_corpus(load_task, as_script)
+    return _CORPUS
+
+
+def build_context(conn, task, setting, hops, query="", k=4, alpha=0.7):
+    """Return (prompt_section_text, [object names shown], [search hits])."""
     entry = task["entry"]
     parts = [f"Code of the object under test ({entry}):\n```sql\n"
              f"{as_script(task['codebase'][entry])}\n```"]
-    shown = [entry]
-    if setting == "graph":
-        related = []
-        for name, typ, depth in dependency_closure(conn, entry, hops):
-            src = task["codebase"].get(name)
-            code = as_script(src) if src else task["tables"].get(name)
-            if not code:
-                continue
-            hop = "hop" if depth == 1 else "hops"
-            related.append(f"-- {typ.lower()} {name} ({depth} {hop} from {entry})\n{code}")
-            shown.append(name)
-        if related:
-            parts.append("Related objects from the Oracle dependency graph:\n```sql\n"
-                         + "\n\n".join(related) + "\n```")
-    return "\n\n".join(parts), shown
+    shown, hits = [entry], []
+    if setting in ("graph", "hybrid_graph"):
+        text, names = graph_section(conn, task, hops)
+        if text:
+            parts.append(text)
+            shown += names
+    if setting in ("dense", "hybrid", "hybrid_graph"):
+        method = "dense" if setting == "dense" else "hybrid"
+        text, names, hits = search_section(task, query, method, k, alpha, exclude=shown)
+        if text:
+            parts.append(text)
+            shown += names
+    return "\n\n".join(parts), shown, hits
 
 
 # --------------------------------------------------------------------------- model
@@ -325,6 +367,7 @@ def extract_code(text):
 
 # --------------------------------------------------------------------------- main loop
 def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_ctx=8192,
+             k=4, alpha=0.7,
              timeout=300, num_gpu=None, hops=2, seed=42, temperature=0.0):
     preflight()
     task = load_task(task_dir)
@@ -342,7 +385,9 @@ def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_c
     print(f"Task {task['id']} [{setting}]: baseline {baseline['tests']} tests, "
           f"{baseline['failed']} failed, {baseline['errored']} errored")
 
-    context, shown = build_context(conn, task, setting, hops)
+    query = (f"{task['bug_report']}\n{baseline['report']}\n"
+             f"{as_script(task['codebase'][task['entry']])}")
+    context, shown, hits = build_context(conn, task, setting, hops, query, k, alpha)
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": (
@@ -423,7 +468,11 @@ def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_c
         "category": task["category"],
         "task_hops": task["hops"],
         "setting": setting,
-        "graph_hops": hops if setting == "graph" else None,
+        "graph_hops": hops if setting in ("graph", "hybrid_graph") else None,
+        "search_k": k if setting in ("dense", "hybrid", "hybrid_graph") else None,
+        "search_alpha": alpha if setting in ("hybrid", "hybrid_graph") else None,
+        "search_hits": [{"name": h["name"], "task": h["task"], "score": h["score"]}
+                        for h in hits],
         "model": model,
         "seed": seed,
         "temperature": temperature,
@@ -463,7 +512,11 @@ def main():
     p = argparse.ArgumentParser(description="Run the PLSQL-Fix agent on one task.")
     p.add_argument("task_dir", help="e.g. tasks/t001_order_discount")
     p.add_argument("--setting", choices=SETTINGS, default="none")
-    p.add_argument("--hops", type=int, default=2, help="dependency depth for --setting graph")
+    p.add_argument("--hops", type=int, default=2,
+                   help="dependency depth for graph and hybrid_graph")
+    p.add_argument("--k", type=int, default=4, help="objects returned by code search")
+    p.add_argument("--alpha", type=float, default=0.7,
+                   help="hybrid search weight of dense vs keyword (BM25) scores")
     p.add_argument("--model", default="gemma4:e4b")
     p.add_argument("--max-attempts", type=int, default=3)
     p.add_argument("--num-ctx", type=int, default=8192,
@@ -475,9 +528,10 @@ def main():
     p.add_argument("--cpu", action="store_true",
                    help="run the model fully on CPU (num_gpu=0), e.g. while the GPU is unstable")
     a = p.parse_args()
-    result = run_task(a.task_dir, a.setting, a.model, a.max_attempts, a.num_ctx, a.timeout,
-                      num_gpu=0 if a.cpu else None, hops=a.hops, seed=a.seed,
-                      temperature=a.temperature)
+    result = run_task(a.task_dir, setting=a.setting, model=a.model,
+                      max_attempts=a.max_attempts, num_ctx=a.num_ctx, k=a.k, alpha=a.alpha,
+                      timeout=a.timeout, num_gpu=0 if a.cpu else None, hops=a.hops,
+                      seed=a.seed, temperature=a.temperature)
     sys.exit(0 if result["solved"] else 1)
 
 

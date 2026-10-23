@@ -17,3 +17,7 @@ __pycache__/
 # OS / editor
 .vscode/
 Thumbs.db
+
+# embedding cache and local reference files
+.cache/
+reference/

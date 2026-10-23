@@ -52,8 +52,8 @@ SQLPLUS_ONLY = re.compile(
 
 # "create or replace <type> <name>": captures object type and name.
 CREATE_RE = re.compile(
-    r"create\s+(?:or\s+replace\s+)?(?:(?:editionable|noneditionable)\s+)?"
-    r"(package\s+body|type\s+body|package|function|procedure|trigger|type)\s+"
+    r"create\s+(?:or\s+replace\s+)?(?:(?:editionable|noneditionable|force|noforce)\s+)?"
+    r"(package\s+body|type\s+body|package|function|procedure|trigger|type|view|synonym)\s+"
     r'(?:"?\w+"?\.)?"?([\w$#]+)"?',
     re.I)
 PLSQL_START_RE = re.compile(r"^\s*create\s+(or\s+replace\s+)?", re.I)
@@ -183,7 +183,9 @@ def run_statements(conn, stmts):
     errors = []
     with conn.cursor() as cur:
         for s in stmts:
-            body = s if CREATE_RE.search(s) else s.rstrip().rstrip(";")
+            m = CREATE_RE.search(s)
+            plsql = m and m.group(1).lower() not in ("view", "synonym")
+            body = s if plsql else s.rstrip().rstrip(";")  # SQL DDL must not end in ';'
             try:
                 cur.execute(body)
             except oracledb.DatabaseError as e:
@@ -237,7 +239,13 @@ def run_tests(conn, suite):
 
 
 def dependency_closure(conn, start, hops):
-    """Objects reachable from `start` in USER_DEPENDENCIES: [(name, type, depth), ...]."""
+    """Objects reachable from `start`: [(name, type, depth), ...].
+
+    Follows USER_DEPENDENCIES (packages, functions, procedures, types, tables, views,
+    synonyms). Graph v2: when a table is reached, its enabled triggers are added at the
+    same depth (a trigger is part of the table's behaviour) and their dependencies are
+    followed from there.
+    """
     seen, frontier, found = {start}, [start], []
     with conn.cursor() as cur:
         for depth in range(1, hops + 1):
@@ -247,13 +255,25 @@ def dependency_closure(conn, start, hops):
                     "select distinct referenced_name, referenced_type from user_dependencies "
                     "where name = :n and referenced_owner = user "
                     "and referenced_type in "
-                    "('PACKAGE','FUNCTION','PROCEDURE','TYPE','TABLE','VIEW') "
+                    "('PACKAGE','FUNCTION','PROCEDURE','TYPE','TABLE','VIEW','SYNONYM') "
                     "order by referenced_name", n=name)
-                for ref, typ in cur.fetchall():
-                    if ref not in seen:
-                        seen.add(ref)
-                        nxt.append(ref)
-                        found.append((ref, typ, depth))
+                refs = cur.fetchall()
+                for ref, typ in refs:
+                    if ref in seen:
+                        continue
+                    seen.add(ref)
+                    nxt.append(ref)
+                    found.append((ref, typ, depth))
+                    if typ == "TABLE":
+                        cur.execute(
+                            "select trigger_name from user_triggers "
+                            "where table_name = :t and status = 'ENABLED' "
+                            "order by trigger_name", t=ref)
+                        for (trg,) in cur.fetchall():
+                            if trg not in seen:
+                                seen.add(trg)
+                                nxt.append(trg)
+                                found.append((trg, "TRIGGER", depth))
             frontier = nxt
     return found
 
@@ -288,14 +308,15 @@ def search_section(task, query, method, k, alpha, exclude):
             + "\n\n".join(blocks) + "\n```"), [h["name"] for h in hits], hits
 
 
-_CORPUS = None
+_CORPUS = {}
+DISTRACTORS = False  # set from --distractors
 
 
 def _corpus():
-    global _CORPUS
-    if _CORPUS is None:
-        _CORPUS = retrieval.build_corpus(load_task, as_script)
-    return _CORPUS
+    if DISTRACTORS not in _CORPUS:
+        _CORPUS[DISTRACTORS] = retrieval.build_corpus(load_task, as_script,
+                                                      distractors=DISTRACTORS)
+    return _CORPUS[DISTRACTORS]
 
 
 def build_context(conn, task, setting, hops, query="", k=4, alpha=0.7):
@@ -473,6 +494,9 @@ def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_c
         "search_alpha": alpha if setting in ("hybrid", "hybrid_graph") else None,
         "search_hits": [{"name": h["name"], "task": h["task"], "score": h["score"]}
                         for h in hits],
+        "corpus": ("tasks+utplsql" if DISTRACTORS else "tasks")
+                  if setting in ("dense", "hybrid", "hybrid_graph") else None,
+        "corpus_size": len(_corpus()) if setting in ("dense", "hybrid", "hybrid_graph") else None,
         "model": model,
         "seed": seed,
         "temperature": temperature,
@@ -525,9 +549,13 @@ def main():
     p.add_argument("--temperature", type=float, default=0.0,
                    help="0 = greedy; use e.g. 0.2 with different --seed values for repeat runs")
     p.add_argument("--seed", type=int, default=42, help="sampling seed (matters when temperature > 0)")
+    p.add_argument("--distractors", action="store_true",
+                   help="add utPLSQL source objects to the search corpus (scale test)")
     p.add_argument("--cpu", action="store_true",
                    help="run the model fully on CPU (num_gpu=0), e.g. while the GPU is unstable")
     a = p.parse_args()
+    global DISTRACTORS
+    DISTRACTORS = a.distractors
     result = run_task(a.task_dir, setting=a.setting, model=a.model,
                       max_attempts=a.max_attempts, num_ctx=a.num_ctx, k=a.k, alpha=a.alpha,
                       timeout=a.timeout, num_gpu=0 if a.cpu else None, hops=a.hops,

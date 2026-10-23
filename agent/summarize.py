@@ -25,7 +25,8 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SETTING_ORDER = ["none", "dense", "hybrid", "graph", "graph_h3", "graph_h4", "hybrid_graph"]
+SETTING_ORDER = ["none", "dense", "dense+noise", "hybrid", "hybrid+noise", "graph", "graph_h3",
+                 "graph_h4", "hybrid_graph", "hybrid_graph+noise"]
 
 
 def setting_label(d):
@@ -33,7 +34,9 @@ def setting_label(d):
     s = d["setting"]
     hops = d.get("graph_hops")
     if s in ("graph", "hybrid_graph") and hops not in (None, 2):
-        return f"{s}_h{hops}"
+        s = f"{s}_h{hops}"
+    if d.get("corpus") == "tasks+utplsql":
+        s += "+noise"
     return s
 
 

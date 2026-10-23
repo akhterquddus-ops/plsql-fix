@@ -29,8 +29,45 @@ MAX_SEQ_LEN = 1024  # chunks are small; keeps CPU encoding fast
 
 
 # --------------------------------------------------------------------------- corpus
-def build_corpus(load_task, as_script):
-    """[{name, kind, task, text}] for all objects and tables of all tasks."""
+DISTRACTOR_DIR = ROOT / "utPLSQL" / "source"
+DISTRACTOR_EXT = {".pks", ".pkb", ".tps", ".tpb", ".trg"}
+DISTRACTOR_MAX_CHARS = 3000
+
+
+def distractor_docs(seen):
+    """Real open-source PL/SQL (utPLSQL, Apache 2.0) as realistic search distractors.
+
+    Spec + body files of one object are joined into one document; the licence header
+    comment is removed (identical in every file) and each document is capped.
+    """
+    if not DISTRACTOR_DIR.exists():
+        raise SystemExit(f"Distractor source not found: {DISTRACTOR_DIR}. "
+                         "Run scripts/setup_oracle.ps1 once to download utPLSQL.")
+    groups = {}
+    for f in sorted(DISTRACTOR_DIR.rglob("*")):
+        if f.suffix.lower() in DISTRACTOR_EXT:
+            groups.setdefault(f.stem.upper(), []).append(f)
+    docs = []
+    for name, files in sorted(groups.items()):
+        if name in seen:
+            continue
+        parts = []
+        for f in sorted(files, key=lambda x: x.suffix not in (".pks", ".tps")):  # spec first
+            text = f.read_text(encoding="utf-8", errors="replace")
+            text = re.sub(r"/\*.*?Licensed under the Apache License.*?\*/", "", text,
+                          count=1, flags=re.S)
+            parts.append(text.strip())
+        text = "\n\n".join(parts)
+        if len(text) > DISTRACTOR_MAX_CHARS:
+            text = text[:DISTRACTOR_MAX_CHARS] + "\n-- (truncated)"
+        seen.add(name)
+        docs.append({"name": name, "kind": "code", "task": "utplsql", "text": text})
+    return docs
+
+
+def build_corpus(load_task, as_script, distractors=False):
+    """[{name, kind, task, text}] for all objects and tables of all tasks
+    (+ utPLSQL objects as distractors when `distractors` is True)."""
     docs, seen = [], set()
     for d in sorted((ROOT / "tasks").iterdir()):
         if not (d / "01_buggy.sql").exists():
@@ -46,6 +83,8 @@ def build_corpus(load_task, as_script):
                 seen.add(name)
                 docs.append({"name": name, "kind": "table", "task": t["id"],
                              "text": ddl})
+    if distractors:
+        docs += distractor_docs(seen)
     return docs
 
 
@@ -175,9 +214,11 @@ def main():
     p.add_argument("--k", type=int, default=4)
     p.add_argument("--alpha", type=float, default=0.7)
     p.add_argument("--methods", default="bm25,dense,hybrid")
+    p.add_argument("--distractors", action="store_true",
+                   help="add utPLSQL source objects to the corpus")
     a = p.parse_args()
 
-    docs = build_corpus(load_task, as_script)
+    docs = build_corpus(load_task, as_script, distractors=a.distractors)
     print(f"Corpus: {len(docs)} documents "
           f"({sum(d['kind'] == 'code' for d in docs)} objects, "
           f"{sum(d['kind'] == 'table' for d in docs)} tables). Model: {EMBED_MODEL}")

@@ -1,0 +1,84 @@
+{
+  "task": "t016_active_staff",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "ACTIVE_STAFF_V",
+      "task": "t016_active_staff",
+      "score": 0.6118
+    },
+    {
+      "name": "T002_WORKING_DAYS",
+      "task": "t002_working_days",
+      "score": 0.6036
+    },
+    {
+      "name": "T007_REPORTS_API",
+      "task": "t007_region_summary",
+      "score": 0.5895
+    },
+    {
+      "name": "STAFF",
+      "task": "t016_active_staff",
+      "score": 0.5835
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "HEADCOUNT_REPORT",
+    "ACTIVE_STAFF_V",
+    "T002_WORKING_DAYS",
+    "T007_REPORTS_API",
+    "STAFF"
+  ],
+  "buggy_objects": [
+    "ACTIVE_STAFF_V"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "ACTIVE_STAFF_V"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1266,
+  "wall_seconds": 3.74,
+  "timestamp": "2026-10-24T01:48:59",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1266,
+      "output_tokens": 91,
+      "seconds": 3.25,
+      "edited_objects": [
+        "ACTIVE_STAFF_V"
+      ],
+      "cause": "active_staff_v excludes permanent staff because their end_date is NULL.",
+      "candidate": "create or replace view active_staff_v as\n-- Staff still employed: no end date yet, or an end date today or later.\nselect staff_id, full_name, dept_code\n  from staff\n where end_date is null or end_date >= trunc(sysdate)\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

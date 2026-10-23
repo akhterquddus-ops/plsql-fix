@@ -1,0 +1,84 @@
+{
+  "task": "t012_scholarship_fee",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "COURSE_ENROLMENTS_BI",
+      "task": "t012_scholarship_fee",
+      "score": 0.9835
+    },
+    {
+      "name": "COURSE_ENROLMENTS",
+      "task": "t012_scholarship_fee",
+      "score": 0.9602
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.6882
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.6144
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ENROLMENT_API",
+    "COURSE_ENROLMENTS_BI",
+    "COURSE_ENROLMENTS",
+    "T004_LOANS_API",
+    "T008_PAYMENTS_API"
+  ],
+  "buggy_objects": [
+    "COURSE_ENROLMENTS_BI"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "COURSE_ENROLMENTS_BI"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1592,
+  "wall_seconds": 5.57,
+  "timestamp": "2026-10-24T01:31:09",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1592,
+      "output_tokens": 152,
+      "seconds": 5.07,
+      "edited_objects": [
+        "COURSE_ENROLMENTS_BI"
+      ],
+      "cause": "course_enrolments_bi incorrectly subtracted the scholarship percentage value instead of calculating the percentage of the fee.",
+      "candidate": "create or replace trigger course_enrolments_bi\nbefore insert on course_enrolments\nfor each row\ndeclare\n  l_fee courses.fee%type;\nbegin\n  -- Fee the student pays after their scholarship (a percentage of the course fee).\n  select fee into l_fee from courses where course_code = :new.course_code;\n  :new.fee_due := l_fee * (1 - (:new.scholarship_pct / 100));\nend course_enrolments_bi;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

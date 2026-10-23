@@ -25,6 +25,7 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+MAIN_MODEL = "gemma4:e4b"  # other models get a suffix, e.g. graph@26b
 SETTING_ORDER = ["none", "dense", "dense+noise", "hybrid", "hybrid+noise", "graph", "graph_h3",
                  "graph_h4", "hybrid_graph", "hybrid_graph+noise"]
 
@@ -37,6 +38,9 @@ def setting_label(d):
         s = f"{s}_h{hops}"
     if d.get("corpus") == "tasks+utplsql":
         s += "+noise"
+    model = d.get("model") or ""
+    if model and model != MAIN_MODEL:
+        s += "@" + model.split(":")[-1]          # e.g. graph@26b
     return s
 
 
@@ -113,7 +117,10 @@ def table(title, groups, key_names):
 
 
 def sort_setting(s):
-    return SETTING_ORDER.index(s) if s in SETTING_ORDER else len(SETTING_ORDER)
+    """Main model first in the usual order; other models after, in the same order."""
+    base, _, model = s.partition("@")
+    i = SETTING_ORDER.index(base) if base in SETTING_ORDER else len(SETTING_ORDER)
+    return (model, i)
 
 
 def main():

@@ -22,6 +22,7 @@ Usage (repo root, conda env with oracledb + requests):
   python agent/run_task.py tasks/t001_order_discount --setting none --cpu
 
 Connection overrides: PLSQLFIX_DB_USER, PLSQLFIX_DB_PASSWORD, PLSQLFIX_DB_DSN, OLLAMA_URL
+Device label in the log (e.g. kaggle-t4x2 for a remote Ollama): PLSQLFIX_DEVICE
 """
 import argparse
 import json
@@ -356,26 +357,50 @@ def preflight():
 
 
 def ask_model(model, messages, num_ctx, timeout, num_gpu=None, seed=42, temperature=0.0):
+    """One chat call. The answer is streamed, so a remote Ollama behind a tunnel (which may
+    cut requests that send nothing for ~100 s) keeps the connection busy; the content and
+    token counts are the same as a non-streamed call."""
     options = {"temperature": temperature, "seed": seed, "num_ctx": num_ctx}
     if num_gpu is not None:
         options["num_gpu"] = num_gpu  # 0 = run fully on CPU
-    try:
-        r = requests.post(
-            f"{OLLAMA_URL}/api/chat",
-            json={"model": model, "messages": messages, "stream": False,
-                  "think": False, "keep_alive": "30m", "options": options},
-            timeout=timeout)
-    except requests.Timeout:
-        sys.exit(f"Model call timed out after {timeout}s. Check `ollama ps` and `nvidia-smi` "
-                 "(if the GPU is lost, reboot and use --cpu).")
-    r.raise_for_status()
-    d = r.json()
+    body = {"model": model, "messages": messages, "stream": True,
+            "think": False, "keep_alive": "30m", "options": options}
+    for attempt in range(4):
+        try:
+            with requests.post(f"{OLLAMA_URL}/api/chat", json=body, stream=True,
+                               timeout=timeout) as r:
+                if r.status_code in (502, 503, 504, 524) and attempt < 3:
+                    print(f"  HTTP {r.status_code} from Ollama, retrying in 15 s ({attempt + 1}/3)")
+                    time.sleep(15)
+                    continue
+                r.raise_for_status()
+                parts, last = [], {}
+                for line in r.iter_lines():
+                    if not line:
+                        continue
+                    chunk = json.loads(line)
+                    if "error" in chunk:
+                        raise RuntimeError(f"Ollama error: {chunk['error']}")
+                    parts.append(chunk.get("message", {}).get("content", ""))
+                    if chunk.get("done"):
+                        last = chunk
+                if not last:
+                    raise requests.ConnectionError("stream ended before the answer was complete")
+                break
+        except requests.Timeout:
+            sys.exit(f"Model call timed out after {timeout}s. Check `ollama ps` and `nvidia-smi` "
+                     "(if the GPU is lost, reboot and use --cpu).")
+        except (requests.ConnectionError, requests.exceptions.ChunkedEncodingError) as e:
+            if attempt == 3:
+                sys.exit(f"Cannot reach Ollama at {OLLAMA_URL}: {e}")
+            print(f"  connection error ({e.__class__.__name__}), retrying in 15 s ({attempt + 1}/3)")
+            time.sleep(15)
     stats = {
-        "prompt_tokens": d.get("prompt_eval_count"),
-        "output_tokens": d.get("eval_count"),
-        "seconds": round((d.get("total_duration") or 0) / 1e9, 2),
+        "prompt_tokens": last.get("prompt_eval_count"),
+        "output_tokens": last.get("eval_count"),
+        "seconds": round((last.get("total_duration") or 0) / 1e9, 2),
     }
-    return d["message"]["content"], stats
+    return "".join(parts), stats
 
 
 def extract_code(text):
@@ -500,7 +525,7 @@ def run_task(task_dir, setting="none", model="gemma4:e4b", max_attempts=3, num_c
         "model": model,
         "seed": seed,
         "temperature": temperature,
-        "device": "cpu" if num_gpu == 0 else "gpu",
+        "device": os.getenv("PLSQLFIX_DEVICE") or ("cpu" if num_gpu == 0 else "gpu"),
         "num_ctx": num_ctx,
         "max_attempts": max_attempts,
         "context_objects": shown,

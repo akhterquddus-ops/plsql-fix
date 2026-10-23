@@ -1,0 +1,101 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "ITEM_MARGINS_V",
+      "task": "t014_item_margin",
+      "score": 0.6308
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.5941
+    },
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.5922
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.5887
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "T009_PARCEL_PKG",
+    "T001_PRICING",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1449,
+  "wall_seconds": 153.57,
+  "timestamp": "2026-10-24T01:39:06",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1449,
+      "output_tokens": 6742,
+      "seconds": 120.77,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "margin_report.margin_pct has a syntax error in the SELECT statement (missing INTO clause) and the view item_margins_v is likely calling average_unit_cost incorrectly or the package body was broken. Actually, the bug is in margin_report.margin_pct where 'select margin_pct into l_margin' is invalid because margin_pct is the name of the function, not a column in the view. The view item_margins_v has a column named margin_pct.",
+      "candidate": "```sql\n-- Cause: margin_report.margin_pct has a syntax error in the SELECT statement (missing INTO clause) and the view item_margins_v is likely calling average_unit_cost incorrectly or the package body was broken. Actually, the bug is in margin_report.margin_pct where 'select margin_pct into l_margin' is invalid because margin_pct is the name of the function, not a column in the view. The view item_margins_v has a column named margin_pct.\n\ncreate or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select margin_pct into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "outcome": "invalid_statement"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 6975,
+      "output_tokens": 111,
+      "seconds": 9.71,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "margin_report.margin_pct has a syntax error in the SELECT statement (missing INTO clause)",
+      "candidate": "create or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select margin_pct into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 7139,
+      "output_tokens": 1051,
+      "seconds": 21.64,
+      "edited_objects": [
+        "ITEM_MARGINS_V"
+      ],
+      "cause": "item_margins_v.margin_pct uses average_unit_cost(i.sku) which returns the total cost instead of the average cost, so the view must divide by the number of deliveries (count of orders) to get the correct average.",
+      "candidate": "```sql\n-- Cause: item_margins_v.margin_pct uses average_unit_cost(i.sku) which returns the total cost instead of the average cost, so the view must divide by the number of deliveries (count of orders) to get the correct average.\ncreate or replace view item_margins_v as\nselect i.sku,\n       i.list_price,\n       average_unit_cost(i.sku) / count(o.order_id) as unit_cost,\n       round((i.list_price - (average_unit_cost(i.sku) / count(o.order_id))) / i.list_price * 100, 1) as margin_pct\n  from catalogue_items i\n  left join order_items oi on i.sku = oi.sku\n  left join orders o on oi.order_id = o.order_id\n group by i.sku, i.list_price;\n/",
+      "outcome": "invalid_statement"
+    }
+  ]
+}

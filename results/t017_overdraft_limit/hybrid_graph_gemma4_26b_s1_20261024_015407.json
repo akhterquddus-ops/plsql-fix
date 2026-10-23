@@ -1,0 +1,86 @@
+{
+  "task": "t017_overdraft_limit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T003_ACCOUNTS_API",
+      "task": "t003_transfer_fee",
+      "score": 1.0
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.8465
+    },
+    {
+      "name": "T003_LEDGER_PKG",
+      "task": "t003_transfer_fee",
+      "score": 0.6812
+    },
+    {
+      "name": "WAREHOUSE_API",
+      "task": "t013_stock_moves",
+      "score": 0.6544
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ATM_API",
+    "BANK_ACCOUNTS",
+    "BANK_ACCOUNTS_BU",
+    "T003_ACCOUNTS_API",
+    "T008_PAYMENTS_API",
+    "T003_LEDGER_PKG",
+    "WAREHOUSE_API"
+  ],
+  "buggy_objects": [
+    "BANK_ACCOUNTS_BU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "BANK_ACCOUNTS_BU"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2369,
+  "wall_seconds": 6.04,
+  "timestamp": "2026-10-24T01:54:07",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2369,
+      "output_tokens": 138,
+      "seconds": 5.16,
+      "edited_objects": [
+        "BANK_ACCOUNTS_BU"
+      ],
+      "cause": "atm_api.withdraw, the trigger logic checks :old.balance < -:new.overdraft_limit instead of :new.balance < -:new.overdraft_limit",
+      "candidate": "create or replace trigger bank_accounts_bu\nbefore update of balance on bank_accounts\nfor each row\nbegin\n  -- The balance may not go below minus the overdraft limit.\n  if :new.balance < -:new.overdraft_limit then\n    raise_application_error(-20070, 'Overdraft limit exceeded');\n  end if;\nend bank_accounts_bu;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

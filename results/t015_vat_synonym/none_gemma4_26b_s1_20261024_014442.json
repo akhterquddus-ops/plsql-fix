@@ -1,0 +1,88 @@
+{
+  "task": "t015_vat_synonym",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "INVOICE_TAX"
+  ],
+  "buggy_objects": [
+    "VAT_RATES"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 750,
+  "wall_seconds": 143.59,
+  "timestamp": "2026-10-24T01:44:42",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 750,
+      "output_tokens": 2476,
+      "seconds": 48.58,
+      "edited_objects": [
+        "INVOICE_TAX"
+      ],
+      "cause": "invoice_tax.vat_for uses vat_rates.rate_for which likely returns outdated rates instead of current ones.",
+      "candidate": "create or replace package invoice_tax as\n  -- VAT for an invoice line, using the current VAT rates.\n  function vat_for(p_amount in number, p_region in varchar2) return number;\nend invoice_tax;\n/\ncreate or replace package body invoice_tax as\n  function vat_for(p_amount in number, p_region in varchar2) return number is\n  begin\n    return round(p_amount * vat_rates.rate_for(p_region, SYSDATE) / 100, 2);\n  end vat_for;\nend invoice_tax;\n/\ncreate or replace package invoice_tax as\n  -- VAT for an invoice line, using the current VAT rates.\n  function vat_for(p_amount in number, p_region in varchar2) return number;\nend invoice_tax;\n/\ncreate or replace package body invoice_tax as\n  function vat_for(p_amount in number, p_region in varchar2) return number is\n  begin\n    return round(p_amount * vat_rates.rate_for(p_region, SYSDATE) / 100, 2);\n  end vat_for;\nend invoice_tax;\n/\ncreate or replace package invoice_tax as\n  -- VAT for an invoice line, using the current VAT rates.\n  function vat_for(p_amount in number, p_region in varchar2) return number;\nend invoice_tax;\n/\ncreate or replace package body invoice_tax as\n  function vat_for(p_amount in number, p_region in varchar2) return number is\n  begin\n    return round(p_amount * vat_rates.rate_for(p_region, SYSDATE) / 100, 2);\n  end vat_for;\nend invoice_tax;\n/",
+      "compile_errors": [
+        "PACKAGE BODY INVOICE_TAX line 4, col 29: PLS-00306: wrong number or types of arguments in call to 'RATE_FOR'",
+        "PACKAGE BODY INVOICE_TAX line 4, col 5: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 3314,
+      "output_tokens": 176,
+      "seconds": 6.32,
+      "edited_objects": [
+        "INVOICE_TAX"
+      ],
+      "cause": "invoice_tax.vat_for calls vat_rates.rate_for which returns the rate for the last period instead of the current one.",
+      "candidate": "create or replace package invoice_tax as\n  -- VAT for an invoice line, using the current VAT rates.\n  function vat_for(p_amount in number, p_region in varchar2) return number;\nend invoice_tax;\n/\ncreate or replace package body invoice_tax as\n  function vat_for(p_amount in number, p_region in varchar2) return number is\n  begin\n    return round(p_amount * vat_rates.current_rate_for(p_region) / 100, 2);\n  end vat_for;\nend invoice_tax;\n/",
+      "compile_errors": [
+        "PACKAGE BODY INVOICE_TAX line 4, col 39: PLS-00302: component 'CURRENT_RATE_FOR' must be declared",
+        "PACKAGE BODY INVOICE_TAX line 4, col 5: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 3575,
+      "output_tokens": 4616,
+      "seconds": 87.15,
+      "edited_objects": [
+        "INVOICE_TAX"
+      ],
+      "cause": "invoice_tax.vat_for calls vat_rates.rate_for which returns the rate for the last period instead of the current one.",
+      "candidate": "create or replace package invoice_tax as\n  -- VAT for an invoice line, using the current VAT rates.\n  function vat_for(p_amount in number, p_region in varchar2) return number;\nend invoice_tax;\n/\ncreate or replace package body invoice_tax as\n  function vat_for(p_amount in number, p_region in varchar2) return number is\n  begin\n    return round(p_amount * vat_rates.rate_for(p_region, TRUNC(SYSDATE)) / 100, 2);\n  end vat_for;\nend invoice_tax;\n/",
+      "compile_errors": [
+        "PACKAGE BODY INVOICE_TAX line 4, col 29: PLS-00306: wrong number or types of arguments in call to 'RATE_FOR'",
+        "PACKAGE BODY INVOICE_TAX line 4, col 5: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

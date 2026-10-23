@@ -1,0 +1,81 @@
+{
+  "task": "t013_stock_moves",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "WAREHOUSE_API"
+  ],
+  "buggy_objects": [
+    "STOCK_MOVES_AI"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 894,
+  "wall_seconds": 30.63,
+  "timestamp": "2026-10-24T01:32:13",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 894,
+      "output_tokens": 326,
+      "seconds": 6.59,
+      "edited_objects": [
+        "WAREHOUSE_API"
+      ],
+      "cause": "warehouse_api.on_hand does not account for the direction of stock moves, causing it to sum all quantities regardless of whether they were 'IN' or 'OUT'.",
+      "candidate": "create or replace package body warehouse_api as\n  function on_hand(p_bin_code in varchar2) return number is\n    l_qty number;\n  begin\n    select nvl(sum(case when direction = 'IN' then qty else -qty end), 0)\n    into l_qty\n    from stock_moves\n    where bin_code = p_bin_code;\n    return l_qty;\n  end on_hand;\n\n  procedure receive(p_bin_code in varchar2, p_qty in number) is\n  begin\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'IN', p_qty);\n  end receive;\n\n  procedure ship(p_bin_code in varchar2, p_qty in number) is\n  begin\n    if on_hand(p_bin_code) < p_qty then\n      raise_application_error(-20060, 'Not enough stock in bin ' || p_bin_code);\n    end if;\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'OUT', p_qty);\n  end ship;\nend warehouse_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 2
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1712,
+      "output_tokens": 883,
+      "seconds": 16.59,
+      "edited_objects": [
+        "WAREHOUSE_API"
+      ],
+      "cause": "warehouse_api.on_hand was querying the wrong table (warehouse_bins instead of stock_moves) and the previous fix incorrectly assumed stock_moves was the source of truth while the original code used warehouse_bins.",
+      "candidate": "create or replace package body warehouse_api as\n  function on_hand(p_bin_code in varchar2) return number is\n    l_qty number;\n  begin\n    select nvl(sum(case when direction = 'IN' then qty else -qty end), 0)\n    into l_qty\n    from stock_moves\n    where bin_code = p_bin_code;\n    return l_qty;\n  end on_hand;\n\n  procedure receive(p_bin_code in varchar2, p_qty in number) is\n  begin\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'IN', p_qty);\n  end receive;\n\n  procedure ship(p_bin_code in varchar2, p_qty in number) is\n  begin\n    if on_hand(p_bin_code) < p_qty then\n      raise_application_error(-20060, 'Not enough stock in bin ' || p_bin_code);\n    end if;\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'OUT', p_qty);\n  end ship;\nend warehouse_api;\n/\ncreate or replace package body warehouse_api as\n  function on_hand(p_bin_code in varchar2) return number is\n    l_qty number;\n  begin\n    select nvl(sum(case when direction = 'IN' then qty else -qty end), 0)\n    into l_qty\n    from stock_moves\n    where bin_code = p_bin_code;\n    return l_qty;\n  end on_hand;\n\n  procedure receive(p_bin_code in varchar2, p_qty in number) is\n  begin\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'IN', p_qty);\n  end receive;\n\n  procedure ship(p_bin_code in varchar2, p_qty in number) is\n  begin\n    if on_hand(p_bin_code) < p_qty then\n      raise_application_error(-20060, 'Not enough stock in bin ' || p_bin_code);\n    end if;\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'OUT', p_qty);\n  end ship;\nend warehouse_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2648,
+      "output_tokens": 315,
+      "seconds": 6.29,
+      "edited_objects": [
+        "WAREHOUSE_API"
+      ],
+      "cause": "warehouse_api.on_hand was querying the warehouse_bins table instead of calculating the balance from stock_moves.",
+      "candidate": "create or replace package body warehouse_api as\n  function on_hand(p_bin_code in varchar2) return number is\n    l_qty number;\n  begin\n    select nvl(sum(case when direction = 'IN' then qty else -qty end), 0)\n    into l_qty\n    from stock_moves\n    where bin_code = p_bin_code;\n    return l_qty;\n  end on_hand;\n\n  procedure receive(p_bin_code in varchar2, p_qty in number) is\n  begin\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'IN', p_qty);\n  end receive;\n\n  procedure ship(p_bin_code in varchar2, p_qty in number) is\n  begin\n    if on_hand(p_bin_code) < p_qty then\n      raise_application_error(-20060, 'Not enough stock in bin ' || p_bin_code);\n    end if;\n    insert into stock_moves (bin_code, direction, qty) values (p_bin_code, 'OUT', p_qty);\n  end ship;\nend warehouse_api;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

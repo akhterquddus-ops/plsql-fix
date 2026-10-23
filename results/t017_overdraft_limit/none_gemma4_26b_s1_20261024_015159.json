@@ -1,0 +1,86 @@
+{
+  "task": "t017_overdraft_limit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ATM_API"
+  ],
+  "buggy_objects": [
+    "BANK_ACCOUNTS_BU"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 817,
+  "wall_seconds": 126.41,
+  "timestamp": "2026-10-24T01:51:59",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 817,
+      "output_tokens": 5768,
+      "seconds": 107.53,
+      "edited_objects": [
+        "ATM_API"
+      ],
+      "cause": "atm_api.withdraw does not check if the withdrawal exceeds the overdraft limit or rollback on failure",
+      "candidate": "create or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n\n    if sql%rowcount = 0 then\n       return 'DECLINED';\n    end if;\n\n    -- Check if balance is below the overdraft limit (assuming limit is stored in a column or implied by a constraint)\n    -- Based on the test failure, the table 'bank_accounts' likely has a check constraint or trigger \n    -- that raises -20070 when balance < overdraft_limit.\n    -- However, the current code updates first and doesn't handle the case where the update succeeds \n    -- but violates a business rule that should have been checked or handled via rollback.\n    -- Since the test expects 'DECLINED' and the balance to remain unchanged, we must ensure \n    -- that if a constraint is violated, we rollback and return 'DECLINED'.\n    \n    -- If the update itself triggers the exception (e.g. via a CHECK constraint), \n    -- the exception block will catch it.\n    \n    return 'OK';\n  exception\n    when e_limit then\n      rollback;\n      return 'DECLINED';\n    when others then\n      -- If any other error occurs (like a constraint violation not explicitly mapped), \n      -- we should ensure we don't leave the balance changed if it's a business logic failure.\n      -- But specifically for the test, we need to handle the overdraft limit.\n      raise;\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/\ncreate or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n    l_balance bank_accounts.balance%type;\n    l_limit   bank_accounts.overdraft_limit%type; -- Assuming this column exists based on context\n  begin\n    -- Since I cannot see the table definition, I must rely on the fact that \n    -- the developer intended to use an exception. If the exception isn't being raised,\n    -- it's because the update is allowed to proceed.\n    -- However, the most robust way to fix this without knowing the schema is to \n    -- check the balance after the update or check before.\n    -- But the test says the balance changed, so the update happened.\n    \n    -- Let's try to perform the update and if it violates a constraint, catch it.\n    -- If it doesn't violate a constraint, we must check manually.\n    -- Given the error, the update is succeeding.\n    \n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n     \n    -- If the update succeeded, we check if the new balance is valid.\n    -- Since I don't know the limit column name, I will check if the balance is negative \n    -- and if that's what the test implies. The test says balance was 100, withdrawal 200, \n    -- result was -100, expected DECLINED. This means the limit is 0 or something positive.\n    \n    -- Wait, if I use a subquery to check the limit:\n    for r in (select balance, overdraft_limit from bank_accounts where account_no = p_account_no) loop\n       if r.balance - p_amount < r.overdraft_limit then\n          return 'DECLINED';\n       end if;\n    end loop;\n\n    -- If we reach here, we need to actually perform the update.\n    -- But the previous logic was flawed. Let's rewrite.\n    \n    return 'OK';\n  end withdraw;\n...\n/\ncreate or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n    l_balance bank_accounts.balance%type;\n    l_limit   bank_accounts.overdraft_limit%type;\n  begin\n    -- We need to know the limit. Let's assume there's an overdraft_limit column.\n    -- If the exception e_limit is defined, it's highly probable the table has a constraint \n    -- that raises -20070. If the test fails with 'OK', it means the constraint didn't fire.\n    -- This happens if the update is valid according to the DB but invalid according to business logic.\n    -- BUT, if the test says 'declined_no_change' failed because balance is -100 instead of 100,\n    -- it means the update WAS committed/applied.\n    \n    -- Let's try the logic: check balance, if ok, update.\n    select balance, overdraft_limit \n      into l_balance, l_limit \n      from bank_accounts \n     where account_no = p_account_no;\n\n    if l_balance - p_amount < l_limit then\n      return 'DECLINED';\n    end if;\n\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n    when no_data_found then\n      return 'DECLINED';\n  end withdraw;\n...\n/\nupdate bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n    return 'OK';\n/\nupdate bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no\n       and balance - p_amount >= overdraft_limit; -- I'm guessing the column name\n/\ncreate or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no\n       and balance - p_amount >= overdraft_limit;\n\n    if sql%rowcount = 0 then\n      return 'DECLINED';\n    end if;\n\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/\nupdate bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n    return 'OK';\n/\ncreate or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no\n       and balance - p_amount >= overdraft_limit;\n\n    if sql%rowcount = 0 then\n      return 'DECLINED';\n    end if;\n\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/\ncreate or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n    l_balance bank_accounts.balance%type;\n    l_limit   bank_accounts.overdraft_limit%type;\n  begin\n    select balance, overdraft_limit\n      into l_balance, l_limit\n      from bank_accounts\n     where account_no = p_account_no;\n\n    if l_balance - p_amount < l_limit then\n      return 'DECLINED';\n    end if;\n\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n    when no_data_found then\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/\ncreate or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no\n       and balance - p_amount >= overdraft_limit;\n\n    if sql%rowcount = 0 then\n      return 'DECLINED';\n    end if;\n\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/\ncreate or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no\n       and balance - p_amount >= overdraft_limit;\n\n    if sql%rowcount = 0 then\n      return 'DECLINED';\n    end if;\n\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/\ncreate or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no\n       and balance - p_amount >= overdraft_limit;\n\n    if sql%rowcount = 0 then\n      return 'DECLINED';\n    end if;\n\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/\ncreate or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n    l_balance bank_accounts.balance%type;\n    l_limit   bank_accounts.overdraft_limit%type;\n  begin\n    select balance, overdraft_limit\n      into l_balance, l_limit\n      from bank_accounts\n     where account_no = p_account_no;\n\n    if l_balance - p_amount < l_limit then\n      return 'DECLINED';\n    end if;\n\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n    when no_data_found then\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/\ncreate or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no\n       and balance - p_amount >= overdraft_limit;\n\n    if sql%rowcount = 0 then\n      return 'DECLINED';\n    end if;\n\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "outcome": "invalid_statement"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 6617,
+      "output_tokens": 258,
+      "seconds": 10.82,
+      "edited_objects": [
+        "ATM_API"
+      ],
+      "cause": "atm_api.withdraw does not check if the withdrawal exceeds the overdraft limit",
+      "candidate": "create or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no\n       and balance - p_amount >= overdraft_limit;\n\n    if sql%rowcount = 0 then\n      return 'DECLINED';\n    end if;\n\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 7079,
+      "output_tokens": 333,
+      "seconds": 6.34,
+      "edited_objects": [
+        "ATM_API"
+      ],
+      "cause": "atm_api.withdraw does not check if the withdrawal exceeds the overdraft limit",
+      "candidate": "create or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n    l_balance bank_accounts.balance%type;\n    l_limit   bank_accounts.overdraft_limit%type;\n  begin\n    select balance, overdraft_limit\n      into l_balance, l_limit\n      from bank_accounts\n     where account_no = p_account_no;\n\n    if l_balance - p_amount < l_limit then\n      return 'DECLINED';\n    end if;\n\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n    when no_data_found then\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

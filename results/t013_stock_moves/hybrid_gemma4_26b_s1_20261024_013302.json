@@ -1,0 +1,84 @@
+{
+  "task": "t013_stock_moves",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "STOCK_MOVES_AI",
+      "task": "t013_stock_moves",
+      "score": 0.8901
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.8648
+    },
+    {
+      "name": "STOCK_MOVES",
+      "task": "t013_stock_moves",
+      "score": 0.8545
+    },
+    {
+      "name": "T005_STOCK_UTIL",
+      "task": "t005_stock_reserve",
+      "score": 0.7266
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "WAREHOUSE_API",
+    "STOCK_MOVES_AI",
+    "T005_ORDERS_API",
+    "STOCK_MOVES",
+    "T005_STOCK_UTIL"
+  ],
+  "buggy_objects": [
+    "STOCK_MOVES_AI"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "STOCK_MOVES_AI"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1567,
+  "wall_seconds": 5.51,
+  "timestamp": "2026-10-24T01:33:02",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1567,
+      "output_tokens": 147,
+      "seconds": 4.99,
+      "edited_objects": [
+        "STOCK_MOVES_AI"
+      ],
+      "cause": "stock_moves_ai trigger always adds qty regardless of direction",
+      "candidate": "CREATE OR REPLACE TRIGGER stock_moves_ai\nAFTER INSERT ON stock_moves\nFOR EACH ROW\nBEGIN\n  IF :new.direction = 'IN' THEN\n    UPDATE warehouse_bins\n       SET qty = qty + :new.qty\n     WHERE bin_code = :new.bin_code;\n  ELSIF :new.direction = 'OUT' THEN\n    UPDATE warehouse_bins\n       SET qty = qty - :new.qty\n     WHERE bin_code = :new.bin_code;\n  END IF;\nEND stock_moves_ai;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

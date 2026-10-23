@@ -1,0 +1,109 @@
+{
+  "task": "t003_transfer_fee",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.7466
+    },
+    {
+      "name": "T003_LEDGER_PKG",
+      "task": "t003_transfer_fee",
+      "score": 0.7005
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.6492
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.6418
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T003_ACCOUNTS_API",
+    "T003_FEES",
+    "T003_LEDGER_PKG",
+    "T004_LOANS_API",
+    "T008_PAYMENTS_API"
+  ],
+  "buggy_objects": [
+    "T003_FEES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1988,
+  "wall_seconds": 117.09,
+  "timestamp": "2026-10-23T17:30:51",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1988,
+      "output_tokens": 343,
+      "seconds": 54.47,
+      "edited_objects": [
+        "T003_ACCOUNTS_API"
+      ],
+      "cause": "The transfer procedure in T003_ACCOUNTS_API does not account for the fee charged by T003_LEDGER_PKG when checking for sufficient funds.",
+      "candidate": "create or replace package body t003_accounts_api as\n  function balance_of(p_account in number) return number is\n    l_balance t003_accounts.balance%type;\n  begin\n    select balance into l_balance from t003_accounts where account_id = p_account;\n    return l_balance;\n  end balance_of;\n\n  procedure transfer(p_from in number, p_to in number, p_amount in number) is\n    l_fee number;\n  begin\n    if p_amount is null or p_amount <= 0 then\n      raise_application_error(-20002, 'Amount must be positive');\n    end if;\n\n    -- Calculate the fee before checking funds\n    l_fee := t003_fees.fee_for(p_amount);\n\n    -- Check if the total amount (transfer amount + fee) can be covered\n    if balance_of(p_from) < p_amount + l_fee then\n      raise_application_error(-20001, 'Insufficient funds');\n    end if;\n\n    t003_ledger_pkg.post_transfer(p_from, p_to, p_amount);\n  end transfer;\nend t003_accounts_api;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2647,
+      "output_tokens": 366,
+      "seconds": 19.03,
+      "edited_objects": [
+        "T003_ACCOUNTS_API"
+      ],
+      "cause": "The transfer procedure in T003_ACCOUNTS_API was incorrectly checking the balance against only p_amount instead of p_amount + fee, and the fee calculation logic in T003_LEDGER_PKG was not fully reflected in the expected balance change in the tests.",
+      "candidate": "create or replace package body t003_accounts_api as\n  function balance_of(p_account in number) return number is\n    l_balance t003_accounts.balance%type;\n  begin\n    select balance into l_balance from t003_accounts where account_id = p_account;\n    return l_balance;\n  end balance_of;\n\n  procedure transfer(p_from in number, p_to in number, p_amount in number) is\n    l_fee number;\n  begin\n    if p_amount is null or p_amount <= 0 then\n      raise_application_error(-20002, 'Amount must be positive');\n    end if;\n\n    -- Calculate the fee before checking funds\n    l_fee := t003_fees.fee_for(p_amount);\n\n    -- Check if the total amount (transfer amount + fee) can be covered\n    if balance_of(p_from) < p_amount + l_fee then\n      raise_application_error(-20001, 'Insufficient funds');\n    end if;\n\n    t003_ledger_pkg.post_transfer(p_from, p_to, p_amount);\n  end transfer;\nend t003_accounts_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 3066,
+      "output_tokens": 701,
+      "seconds": 37.03,
+      "edited_objects": [
+        "T003_FEES"
+      ],
+      "cause": "The fee calculation in T003_FEES is rounding to 2 decimal places, but the test expectations suggest that the fee calculation should result in a specific integer or a different rounding behavior for the failing tests.",
+      "candidate": "create or replace package body t003_fees as\n  c_rate    constant number := 0.01;\n  c_min_fee constant number := 1;\n  c_max_fee constant number := 10;\n\n  function fee_for(p_amount in number) return number is\n  begin\n    -- The test failures suggest that for small/normal transfers, the fee calculation is resulting in a value that leads to the expected balance difference.\n    -- Small transfer (e.g., amount 430, fee should be 1.00 minimum, but test expects 449 vs 440, implying fee of 9)\n    -- Normal transfer (e.g., amount 380, fee should be 3.80, but test expects 399 vs 390, implying fee of 9)\n    -- Given the test failures, it seems the fee calculation is not what is expected by the tests, possibly due to how rounding interacts with the test setup.\n    -- Let's adjust the rounding to match the expected behavior implied by the test failures, assuming the test expects a specific integer fee for small/normal transfers.\n    -- For small transfer (Actual 440, Expected 449 -> Fee difference of 9), for normal transfer (Actual 390, Expected 399 -> Fee difference of 9).\n    -- If the fee is consistently 9 for these small/normal transfers, we must force it or adjust the rate/rounding.\n    -- Since the fee is 1% of amount, and the tests imply a fixed fee of 9 for small/normal transfers, we must assume the test expects the fee to be 9 in those cases, which contradicts the 1% rate.\n    -- However, if we look at the original code: greatest(least(round(p_amount * c_rate, 2), c_min_fee), c_max_fee);\n    -- If p_amount=430, fee = round(4.30, 2) = 4.30. least(4.30, 10) = 4.30. greatest(4.30, 1) = 4.30.\n    -- If the test expects a fee of 9, the logic is flawed relative to the test expectation.\n    -- Let's assume the test expects the fee to be calculated without rounding to 2 decimal places, and then cast to integer if necessary, or that the test expects the fee to be 9 for these cases.\n    -- Given the constraints, I will change the rounding to use standard mathematical rounding to the nearest integer, as this is a common source of discrepancy when tests expect integer results.\n    return greatest(least(round(p_amount * c_rate), c_min_fee), c_max_fee);\n  end fee_for;\nend t003_fees;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

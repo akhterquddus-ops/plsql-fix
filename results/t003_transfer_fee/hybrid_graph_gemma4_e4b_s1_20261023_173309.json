@@ -1,0 +1,86 @@
+{
+  "task": "t003_transfer_fee",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.9066
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.8995
+    },
+    {
+      "name": "T008_INVOICE_PKG",
+      "task": "t008_overpayment",
+      "score": 0.8228
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.8038
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T003_ACCOUNTS_API",
+    "T003_ACCOUNTS",
+    "T003_LEDGER_PKG",
+    "T003_FEES",
+    "T003_LEDGER",
+    "T008_PAYMENTS_API",
+    "T004_LOANS_API",
+    "T008_INVOICE_PKG",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "T003_FEES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T003_FEES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2699,
+  "wall_seconds": 43.16,
+  "timestamp": "2026-10-23T17:33:09",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2699,
+      "output_tokens": 214,
+      "seconds": 40.93,
+      "edited_objects": [
+        "T003_FEES"
+      ],
+      "cause": "The fee calculation in T003_FEES is incorrectly applying the maximum fee cap to the result of the greatest/least function, leading to incorrect fee amounts for small and normal transfers.",
+      "candidate": "create or replace package body t003_fees as\n  c_rate    constant number := 0.01;\n  c_min_fee constant number := 1;\n  c_max_fee constant number := 10;\n\n  function fee_for(p_amount in number) return number is\n  begin\n    -- Calculate the percentage fee first\n    DECLARE\n      l_calculated_fee NUMBER := round(p_amount * c_rate, 2);\n    BEGIN\n      -- Apply minimum and maximum constraints correctly\n      RETURN greatest(c_min_fee, least(l_calculated_fee, c_max_fee));\n    END;\n  end fee_for;\nend t003_fees;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

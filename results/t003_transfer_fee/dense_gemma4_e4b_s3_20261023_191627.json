@@ -1,0 +1,99 @@
+{
+  "task": "t003_transfer_fee",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.7513
+    },
+    {
+      "name": "T003_LEDGER_PKG",
+      "task": "t003_transfer_fee",
+      "score": 0.709
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.6503
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.648
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T003_ACCOUNTS_API",
+    "T003_FEES",
+    "T003_LEDGER_PKG",
+    "T004_LOANS_API",
+    "T008_PAYMENTS_API"
+  ],
+  "buggy_objects": [
+    "T003_FEES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "T003_FEES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1989,
+  "wall_seconds": 39.44,
+  "timestamp": "2026-10-23T19:16:27",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1989,
+      "output_tokens": 317,
+      "seconds": 24.32,
+      "edited_objects": [
+        "T003_ACCOUNTS_API"
+      ],
+      "cause": "The transfer procedure in T003_ACCOUNTS_API does not account for the fee charged by T003_LEDGER_PKG when checking for sufficient funds.",
+      "candidate": "create or replace package body t003_accounts_api as\n  function balance_of(p_account in number) return number is\n    l_balance t003_accounts.balance%type;\n  begin\n    select balance into l_balance from t003_accounts where account_id = p_account;\n    return l_balance;\n  end balance_of;\n\n  procedure transfer(p_from in number, p_to in number, p_amount in number) is\n    l_fee number;\n  begin\n    if p_amount is null or p_amount <= 0 then\n      raise_application_error(-20002, 'Amount must be positive');\n    end if;\n\n    l_fee := t003_fees.fee_for(p_amount);\n\n    if balance_of(p_from) < p_amount + l_fee then\n      raise_application_error(-20001, 'Insufficient funds');\n    end if;\n\n    t003_ledger_pkg.post_transfer(p_from, p_to, p_amount);\n  end transfer;\nend t003_accounts_api;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2622,
+      "output_tokens": 159,
+      "seconds": 10.68,
+      "edited_objects": [
+        "T003_FEES"
+      ],
+      "cause": "The fee calculation in T003_FEES is rounding incorrectly for the test expectations, specifically for small and normal transfers.",
+      "candidate": "create or replace package body t003_fees as\n  c_rate    constant number := 0.01;\n  c_min_fee constant number := 1;\n  c_max_fee constant number := 10;\n\n  function fee_for(p_amount in number) return number is\n  begin\n    return greatest(least(round(p_amount * c_rate, 2), c_max_fee), c_min_fee);\n  end fee_for;\nend t003_fees;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

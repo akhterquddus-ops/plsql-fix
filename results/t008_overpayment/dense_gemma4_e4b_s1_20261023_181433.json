@@ -1,0 +1,82 @@
+{
+  "task": "t008_overpayment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T008_INVOICE_PKG",
+      "task": "t008_overpayment",
+      "score": 0.7661
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.6432
+    },
+    {
+      "name": "T008_INVOICES",
+      "task": "t008_overpayment",
+      "score": 0.6387
+    },
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.6328
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T008_PAYMENTS_API",
+    "T008_INVOICE_PKG",
+    "T004_LOANS_API",
+    "T008_INVOICES",
+    "T003_FEES"
+  ],
+  "buggy_objects": [
+    "T008_INVOICE_PKG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T008_INVOICE_PKG"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1601,
+  "wall_seconds": 34.22,
+  "timestamp": "2026-10-23T18:14:33",
+  "baseline": {
+    "tests": 4,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1601,
+      "output_tokens": 317,
+      "seconds": 32.02,
+      "edited_objects": [
+        "T008_INVOICE_PKG"
+      ],
+      "cause": "T008_INVOICE_PKG.apply_payment does not correctly handle the case where p_amount > l_open, leading T008_PAYMENTS_API to incorrectly return 'PAID' instead of 'REJECTED' when an overpayment occurs.",
+      "candidate": "create or replace package body t008_invoice_pkg as\n  procedure apply_payment(p_invoice_id in number, p_amount in number) is\n    l_open t008_invoices.open_amount%type;\n  begin\n    select open_amount\n      into l_open\n      from t008_invoices\n     where invoice_id = p_invoice_id\n       for update;\n\n    if p_amount > l_open then\n      raise_application_error(-20010, 'Payment exceeds open amount');\n    end if;\n\n    update t008_invoices\n       set open_amount = open_amount - p_amount\n     where invoice_id = p_invoice_id;\n  exception\n    when others then\n      -- Re-raise the exception if it's the expected application error, otherwise handle it.\n      if sqlcode = -20010 then\n        raise;\n      else\n        null;\n      end if;\n  end apply_payment;\nend t008_invoice_pkg;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

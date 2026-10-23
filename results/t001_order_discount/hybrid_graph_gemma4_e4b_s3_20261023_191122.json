@@ -1,0 +1,84 @@
+{
+  "task": "t001_order_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 1.0
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.8562
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.7003
+    },
+    {
+      "name": "T001_ORDERS",
+      "task": "t001_order_discount",
+      "score": 0.6534
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T001_ORDERS_API",
+    "T001_ORDER_LINES",
+    "T001_PRICING",
+    "T009_CHECKOUT_API",
+    "T005_ORDERS_API",
+    "T009_PARCEL_PKG",
+    "T001_ORDERS"
+  ],
+  "buggy_objects": [
+    "T001_PRICING"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T001_PRICING"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1840,
+  "wall_seconds": 19.94,
+  "timestamp": "2026-10-23T19:11:22",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1840,
+      "output_tokens": 156,
+      "seconds": 17.71,
+      "edited_objects": [
+        "T001_PRICING"
+      ],
+      "cause": "The line_amount function in T001_PRICING incorrectly calculates the discounted amount, leading to negative totals when discounts are applied.",
+      "candidate": "create or replace package body t001_pricing as\n  function line_amount(\n    p_qty          in number,\n    p_unit_price   in number,\n    p_discount_pct in number default 0\n  ) return number is\n  begin\n    return round(p_qty * p_unit_price * (1 - NVL(p_discount_pct, 0) / 100), 2);\n  end line_amount;\nend t001_pricing;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

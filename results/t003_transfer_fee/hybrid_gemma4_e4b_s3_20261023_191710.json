@@ -1,0 +1,82 @@
+{
+  "task": "t003_transfer_fee",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T003_LEDGER_PKG",
+      "task": "t003_transfer_fee",
+      "score": 0.9045
+    },
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.8592
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.5527
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.5525
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T003_ACCOUNTS_API",
+    "T003_LEDGER_PKG",
+    "T003_FEES",
+    "T004_LOANS_API",
+    "T008_PAYMENTS_API"
+  ],
+  "buggy_objects": [
+    "T003_FEES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T003_FEES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1989,
+  "wall_seconds": 20.92,
+  "timestamp": "2026-10-23T19:17:10",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1989,
+      "output_tokens": 167,
+      "seconds": 18.7,
+      "edited_objects": [
+        "T003_FEES"
+      ],
+      "cause": "The fee calculation in t003_fees.fee_for incorrectly applies the maximum fee cap after rounding, leading to incorrect fee amounts for small and normal transfers.",
+      "candidate": "create or replace package body t003_fees as\n  c_rate    constant number := 0.01;\n  c_min_fee constant number := 1;\n  c_max_fee constant number := 10;\n\n  function fee_for(p_amount in number) return number is\n  begin\n    return greatest(least(round(p_amount * c_rate, 2), c_max_fee), c_min_fee);\n  end fee_for;\nend t003_fees;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

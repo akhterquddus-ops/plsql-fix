@@ -1,0 +1,86 @@
+{
+  "task": "t003_transfer_fee",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.9159
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.8995
+    },
+    {
+      "name": "T008_INVOICE_PKG",
+      "task": "t008_overpayment",
+      "score": 0.8286
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.8007
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T003_ACCOUNTS_API",
+    "T003_ACCOUNTS",
+    "T003_LEDGER_PKG",
+    "T003_FEES",
+    "T003_LEDGER",
+    "T008_PAYMENTS_API",
+    "T004_LOANS_API",
+    "T008_INVOICE_PKG",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "T003_FEES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T003_FEES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2699,
+  "wall_seconds": 47.73,
+  "timestamp": "2026-10-23T18:38:04",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2699,
+      "output_tokens": 298,
+      "seconds": 45.53,
+      "edited_objects": [
+        "T003_FEES"
+      ],
+      "cause": "The fee calculation in T003_FEES is incorrectly applying the maximum fee cap after rounding, leading to incorrect fee amounts for small and normal transfers.",
+      "candidate": "create or replace package body t003_fees as\n  c_rate    constant number := 0.01;\n  c_min_fee constant number := 1;\n  c_max_fee constant number := 10;\n\n  function fee_for(p_amount in number) return number is\n  begin\n    -- The original logic was: greatest(least(round(p_amount * c_rate, 2), c_min_fee), c_max_fee);\n    -- This incorrectly caps the fee at c_min_fee if the calculated fee is less than c_min_fee,\n    -- and then caps it at c_max_fee if it exceeds c_max_fee.\n    -- The requirement is: 1% of the amount, at least 1.00 and at most 10.00.\n    -- We should calculate the fee, then apply min/max constraints.\n    return greatest(c_min_fee, least(round(p_amount * c_rate, 2), c_max_fee));\n  end fee_for;\nend t003_fees;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

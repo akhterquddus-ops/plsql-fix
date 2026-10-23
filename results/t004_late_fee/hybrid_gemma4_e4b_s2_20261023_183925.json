@@ -1,0 +1,82 @@
+{
+  "task": "t004_late_fee",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T004_UTIL",
+      "task": "t004_late_fee",
+      "score": 1.0
+    },
+    {
+      "name": "T004_LOANS",
+      "task": "t004_late_fee",
+      "score": 0.8263
+    },
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.6765
+    },
+    {
+      "name": "T010_LOANS_API",
+      "task": "t010_loan_payment",
+      "score": 0.6199
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T004_LOANS_API",
+    "T004_UTIL",
+    "T004_LOANS",
+    "T003_FEES",
+    "T010_LOANS_API"
+  ],
+  "buggy_objects": [
+    "T004_UTIL"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T004_UTIL"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1400,
+  "wall_seconds": 16.9,
+  "timestamp": "2026-10-23T18:39:25",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1400,
+      "output_tokens": 119,
+      "seconds": 14.68,
+      "edited_objects": [
+        "T004_UTIL"
+      ],
+      "cause": "T004_UTIL.days_late incorrectly multiplies the number of days by 24, resulting in a large number instead of the number of days.",
+      "candidate": "create or replace package body t004_util as\n  function days_late(p_due in date, p_returned in date) return number is\n  begin\n    return greatest(trunc(p_returned) - trunc(p_due), 0);\n  end days_late;\nend t004_util;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

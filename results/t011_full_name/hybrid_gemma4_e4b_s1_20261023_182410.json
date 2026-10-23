@@ -1,0 +1,82 @@
+{
+  "task": "t011_full_name",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T007_CUSTOMERS",
+      "task": "t007_region_summary",
+      "score": 1.0
+    },
+    {
+      "name": "T007_REPORTS_API",
+      "task": "t007_region_summary",
+      "score": 0.6126
+    },
+    {
+      "name": "T007_CUSTOMER_Q",
+      "task": "t007_region_summary",
+      "score": 0.6048
+    },
+    {
+      "name": "T002_WORKING_DAYS",
+      "task": "t002_working_days",
+      "score": 0.5215
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T011_FULL_NAME",
+    "T007_CUSTOMERS",
+    "T007_REPORTS_API",
+    "T007_CUSTOMER_Q",
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_objects": [
+    "T011_FULL_NAME"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T011_FULL_NAME"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1398,
+  "wall_seconds": 23.08,
+  "timestamp": "2026-10-23T18:24:10",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1398,
+      "output_tokens": 188,
+      "seconds": 20.89,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The function concatenates names with spaces even if p_middle is NULL, resulting in extra spaces.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\n  v_full_name varchar2(200) := '';\nbegin\n  v_full_name := p_first;\n  if p_middle is not null then\n    v_full_name := v_full_name || ' ' || p_middle;\n  end if;\n  v_full_name := v_full_name || ' ' || p_last;\n  return trim(v_full_name);\nend t011_full_name;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

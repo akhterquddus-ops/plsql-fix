@@ -1,0 +1,82 @@
+{
+  "task": "t001_order_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.9613
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.9075
+    },
+    {
+      "name": "T001_ORDER_LINES",
+      "task": "t001_order_discount",
+      "score": 0.8379
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.7695
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T001_ORDERS_API",
+    "T001_PRICING",
+    "T009_CHECKOUT_API",
+    "T001_ORDER_LINES",
+    "T005_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "T001_PRICING"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T001_PRICING"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1539,
+  "wall_seconds": 37.47,
+  "timestamp": "2026-10-23T19:10:42",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1539,
+      "output_tokens": 510,
+      "seconds": 35.22,
+      "edited_objects": [
+        "T001_PRICING"
+      ],
+      "cause": "The line_amount function in t001_pricing incorrectly calculates the discounted amount by multiplying the original price by (1 - discount_pct), which results in negative values when the discount percentage is large enough relative to the price/quantity, or when the discount is applied incorrectly.",
+      "candidate": "create or replace package body t001_pricing as\n  function line_amount(\n    p_qty          in number,\n    p_unit_price   in number,\n    p_discount_pct in number default 0\n  ) return number is\n  begin\n    -- The discount should be subtracted from the total price, not multiplied by (1 - discount_pct) if discount_pct is meant to be a percentage reduction.\n    -- Assuming p_discount_pct is a percentage (e.g., 10 for 10%), we calculate the discount amount and subtract it.\n    -- If p_discount_pct is already a decimal (e.g., 0.10 for 10%), the original formula was correct for calculating the final price, but the test failure suggests the calculation is wrong for the expected output.\n    -- Given the failure (Actual: -1000 vs Expected: 188), it suggests the discount calculation is leading to a massive negative number.\n    -- If p_discount_pct is a percentage value (like 10 for 10%), we should use (1 - p_discount_pct / 100).\n    -- If p_discount_pct is already a decimal (like 0.10 for 10%), the original formula is correct: p_qty * p_unit_price * (1 - p_discount_pct).\n    -- Since the original formula produced negative results, it implies p_discount_pct might be interpreted as a factor greater than 1, or the test case implies a different calculation.\n    -- Let's assume p_discount_pct is a percentage value (e.g., 10 for 10%) and fix the calculation to subtract the discount amount.\n    return round(p_qty * p_unit_price - (p_qty * p_unit_price * (p_discount_pct / 100)), 2);\n  end line_amount;\nend t001_pricing;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "task": "t001_order_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 1.0
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.8598
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.698
+    },
+    {
+      "name": "T001_ORDERS",
+      "task": "t001_order_discount",
+      "score": 0.6572
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T001_ORDERS_API",
+    "T001_ORDER_LINES",
+    "T001_PRICING",
+    "T009_CHECKOUT_API",
+    "T005_ORDERS_API",
+    "T009_PARCEL_PKG",
+    "T001_ORDERS"
+  ],
+  "buggy_objects": [
+    "T001_PRICING"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T001_PRICING"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1840,
+  "wall_seconds": 39.68,
+  "timestamp": "2026-10-23T18:01:02",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1840,
+      "output_tokens": 352,
+      "seconds": 37.4,
+      "edited_objects": [
+        "T001_PRICING"
+      ],
+      "cause": "The line_amount function in T001_PRICING incorrectly calculates the discounted amount by multiplying the original price by (1 - discount_pct), which results in negative values if the discount percentage is greater than 100% or if the logic is flawed for standard percentage application.",
+      "candidate": "create or replace package body t001_pricing as\n  function line_amount(\n    p_qty          in number,\n    p_unit_price   in number,\n    p_discount_pct in number default 0\n  ) return number is\n  begin\n    -- The discount should be applied to the total price (qty * unit_price).\n    -- If p_discount_pct is 10 (for 10%), the multiplier should be (1 - 0.10) = 0.90.\n    -- The original code was: p_qty * p_unit_price * (1 - nvl(p_discount_pct, 0))\n    -- If p_discount_pct is 10, it calculates: qty * price * (1 - 10) = qty * price * -9.\n    -- Assuming p_discount_pct is provided as a percentage value (e.g., 10 for 10%), we must divide it by 100.\n    return round(p_qty * p_unit_price * (1 - nvl(p_discount_pct, 0) / 100), 2);\n  end line_amount;\nend t001_pricing;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "task": "t005_stock_reserve",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T005_STOCK_UTIL",
+      "task": "t005_stock_reserve",
+      "score": 0.7451
+    },
+    {
+      "name": "T005_STOCK_PKG",
+      "task": "t005_stock_reserve",
+      "score": 0.7418
+    },
+    {
+      "name": "T005_STOCK",
+      "task": "t005_stock_reserve",
+      "score": 0.6729
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.6442
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T005_ORDERS_API",
+    "T005_STOCK_UTIL",
+    "T005_STOCK_PKG",
+    "T005_STOCK",
+    "T001_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "T005_STOCK_UTIL"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T005_STOCK_UTIL"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1483,
+  "wall_seconds": 32.6,
+  "timestamp": "2026-10-23T19:21:42",
+  "baseline": {
+    "tests": 4,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1483,
+      "output_tokens": 391,
+      "seconds": 30.41,
+      "edited_objects": [
+        "T005_STOCK_UTIL"
+      ],
+      "cause": "T005_STOCK_UTIL.available incorrectly returns 0 for products not in T005_STOCK, leading to false NO_STOCK reports for new products.",
+      "candidate": "create or replace package body t005_stock_util as\n  function available(p_product_id in number) return number is\n    l_available number;\n  begin\n    select on_hand - NVL(reserved, 0)\n      into l_available\n      from t005_stock\n     where product_id = p_product_id;\n    return l_available;\n  exception\n    when no_data_found then\n      -- If the product is not in T005_STOCK, it should be treated as having 0 stock,\n      -- but for the purpose of reservation logic (which assumes stock exists),\n      -- we should probably return 0 if it's missing, or handle missing products upstream.\n      -- Given the test failure implies a product exists but has no reservations,\n      -- the issue is likely how reserved is handled when it's null in the table.\n      -- However, if the product is truly new and not in the table, 0 is correct.\n      -- The test failure suggests that for a product that *should* have stock (on_hand > 0),\n      -- but has no reservations, the calculation is failing.\n      -- If the product exists but 'reserved' is NULL, the original code calculates ON_HAND - NULL, which is NULL,\n      -- and the exception handler returns 0.\n      -- The fix is to use NVL(reserved, 0) in the SELECT statement.\n      return 0;\n  end available;\nend t005_stock_util;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "task": "t005_stock_reserve",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T005_STOCK_PKG",
+      "task": "t005_stock_reserve",
+      "score": 0.9918
+    },
+    {
+      "name": "T005_STOCK_UTIL",
+      "task": "t005_stock_reserve",
+      "score": 0.9269
+    },
+    {
+      "name": "T005_STOCK",
+      "task": "t005_stock_reserve",
+      "score": 0.6629
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.6343
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T005_ORDERS_API",
+    "T005_STOCK_PKG",
+    "T005_STOCK_UTIL",
+    "T005_STOCK",
+    "T001_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "T005_STOCK_UTIL"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "T005_STOCK_UTIL"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1483,
+  "wall_seconds": 42.86,
+  "timestamp": "2026-10-23T19:22:45",
+  "baseline": {
+    "tests": 4,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1483,
+      "output_tokens": 212,
+      "seconds": 20.68,
+      "edited_objects": [
+        "T005_STOCK_UTIL"
+      ],
+      "cause": "T005_STOCK_UTIL.available does not account for reserved stock when calculating availability for products that have never been reserved, leading to an incorrect 'NO_STOCK' return.",
+      "candidate": "create or replace package body t005_stock_util as\n  function available(p_product_id in number) return number is\n    l_on_hand number;\n    l_reserved number;\n  begin\n    select on_hand, reserved\n      into l_on_hand, l_reserved\n      from t005_stock\n     where product_id = p_product_id;\n    return l_on_hand - l_reserved;\n  exception\n    when no_data_found then\n      -- If product doesn't exist in stock table, it has 0 on hand and 0 reserved.\n      return 0;\n  end available;\nend t005_stock_util;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1928,
+      "output_tokens": 316,
+      "seconds": 17.71,
+      "edited_objects": [
+        "T005_STOCK_UTIL"
+      ],
+      "cause": "T005_STOCK_UTIL.available was modified to select both on_hand and reserved, but the original implementation of T005_STOCK_UTIL.available was designed to handle missing records by returning 0, which is correct for a product not in stock, but the logic in T005_STOCK_PKG.can_reserve relies on this function. The issue is that when a product has never been reserved, T005_STOCK_UTIL.available returns (on_hand - NULL) or (on_hand - 0) depending on how the select handles NULLs if the column was nullable, but since 'reserved' is nullable in T005_STOCK, the previous fix was insufficient. The correct fix is to ensure T005_STOCK_UTIL.available correctly calculates available stock, treating NULL reserved as 0.",
+      "candidate": "create or replace package body t005_stock_util as\n  function available(p_product_id in number) return number is\n    l_available number;\n  begin\n    select on_hand - NVL(reserved, 0)\n      into l_available\n      from t005_stock\n     where product_id = p_product_id;\n    return l_available;\n  exception\n    when no_data_found then\n      return 0;\n  end available;\nend t005_stock_util;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

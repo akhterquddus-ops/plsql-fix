@@ -1,0 +1,82 @@
+{
+  "task": "t011_full_name",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T007_CUSTOMERS",
+      "task": "t007_region_summary",
+      "score": 0.5983
+    },
+    {
+      "name": "T007_CUSTOMER_Q",
+      "task": "t007_region_summary",
+      "score": 0.5487
+    },
+    {
+      "name": "T007_REPORTS_API",
+      "task": "t007_region_summary",
+      "score": 0.5475
+    },
+    {
+      "name": "T004_UTIL",
+      "task": "t004_late_fee",
+      "score": 0.5456
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T011_FULL_NAME",
+    "T007_CUSTOMERS",
+    "T007_CUSTOMER_Q",
+    "T007_REPORTS_API",
+    "T004_UTIL"
+  ],
+  "buggy_objects": [
+    "T011_FULL_NAME"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T011_FULL_NAME"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1324,
+  "wall_seconds": 26.16,
+  "timestamp": "2026-10-23T18:23:25",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1324,
+      "output_tokens": 177,
+      "seconds": 23.93,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The function concatenates names with spaces even when p_middle is NULL, resulting in extra spaces.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\n  v_full_name varchar2(200);\nbegin\n  v_full_name := p_first || ' ' || p_last;\n  if p_middle is not null then\n    v_full_name := p_first || ' ' || p_middle || ' ' || p_last;\n  end if;\n  return trim(v_full_name);\nend t011_full_name;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

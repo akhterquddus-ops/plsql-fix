@@ -1,0 +1,99 @@
+{
+  "task": "t010_loan_payment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T010_FINANCE_PKG",
+      "task": "t010_loan_payment",
+      "score": 1.0
+    },
+    {
+      "name": "T010_LOANS",
+      "task": "t010_loan_payment",
+      "score": 0.8573
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.8124
+    },
+    {
+      "name": "T004_LOANS",
+      "task": "t004_late_fee",
+      "score": 0.5528
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T010_LOANS_API",
+    "T010_FINANCE_PKG",
+    "T010_LOANS",
+    "T004_LOANS_API",
+    "T004_LOANS"
+  ],
+  "buggy_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1723,
+  "wall_seconds": 45.29,
+  "timestamp": "2026-10-23T19:41:58",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 1
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1723,
+      "output_tokens": 238,
+      "seconds": 19.42,
+      "edited_objects": [
+        "T010_FINANCE_PKG"
+      ],
+      "cause": "T010_FINANCE_PKG.payment fails when annual_pct is 0 because l_monthly_rate becomes 0, leading to division by zero in t010_math.annuity_factor.",
+      "candidate": "create or replace package body t010_finance_pkg as\n  function payment(p_principal in number, p_annual_pct in number, p_months in number)\n    return number is\n    l_monthly_rate number;\n  begin\n    if p_annual_pct = 0 then\n      -- For interest-free loans, the monthly payment is simply principal / months\n      return round(p_principal / p_months, 2);\n    else\n      l_monthly_rate := p_annual_pct / 1200;\n      return round(p_principal * t010_math.annuity_factor(p_months, l_monthly_rate), 2);\n    end if;\n  end payment;\nend t010_finance_pkg;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2315,
+      "output_tokens": 365,
+      "seconds": 21.42,
+      "edited_objects": [
+        "T010_FINANCE_PKG"
+      ],
+      "cause": "The annuity factor calculation in t010_math.annuity_factor is likely incorrect or the expected values in the tests are based on a different formula/rounding, but the primary issue is that the original code used the annuity factor which seems to be producing wildly incorrect results for the given test cases.",
+      "candidate": "create or replace package body t010_finance_pkg as\n  function payment(p_principal in number, p_annual_pct in number, p_months in number)\n    return number is\n    l_monthly_rate number;\n  begin\n    if p_annual_pct = 0 then\n      -- For interest-free loans, the monthly payment is simply principal / months\n      return round(p_principal / p_months, 2);\n    else\n      l_monthly_rate := p_annual_pct / 1200;\n      -- Assuming the expected values imply a standard amortization formula where the factor is calculated differently or the test expects a specific result.\n      -- Since we cannot see t010_math.annuity_factor, we must assume the standard PMT formula implementation is required if the existing one fails drastically.\n      -- Standard PMT formula: P * [r(1+r)^n] / [(1+r)^n - 1]\n      return round(p_principal * (l_monthly_rate * POWER((1 + l_monthly_rate), p_months) / (POWER((1 + l_monthly_rate), p_months) - 1)), 2);\n    end if;\n  end payment;\nend t010_finance_pkg;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

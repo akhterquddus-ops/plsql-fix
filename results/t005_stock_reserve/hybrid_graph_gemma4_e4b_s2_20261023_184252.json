@@ -1,0 +1,87 @@
+{
+  "task": "t005_stock_reserve",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 1.0
+    },
+    {
+      "name": "T001_ORDER_LINES",
+      "task": "t001_order_discount",
+      "score": 0.8931
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.8496
+    },
+    {
+      "name": "T001_ORDERS",
+      "task": "t001_order_discount",
+      "score": 0.799
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T005_ORDERS_API",
+    "T005_STOCK_PKG",
+    "T005_STOCK",
+    "T005_STOCK_UTIL",
+    "T001_ORDERS_API",
+    "T001_ORDER_LINES",
+    "T009_CHECKOUT_API",
+    "T001_ORDERS"
+  ],
+  "buggy_objects": [
+    "T005_STOCK_UTIL"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T005_STOCK_UTIL",
+    "T005_STOCK_PKG"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1930,
+  "wall_seconds": 46.32,
+  "timestamp": "2026-10-23T18:42:52",
+  "baseline": {
+    "tests": 4,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1930,
+      "output_tokens": 631,
+      "seconds": 44.11,
+      "edited_objects": [
+        "T005_STOCK_UTIL",
+        "T005_STOCK_PKG"
+      ],
+      "cause": "t005_stock_util.available incorrectly calculates available stock when the product does not exist in t005_stock, leading to reservation failure for new products.",
+      "candidate": "create or replace package body t005_stock_util as\n  function available(p_product_id in number) return number is\n    l_available number;\n  begin\n    select on_hand - nvl(reserved, 0)\n      into l_available\n      from t005_stock\n     where product_id = p_product_id;\n    return l_available;\n  exception\n    when no_data_found then\n      -- If the product does not exist, it should be treated as having 0 on_hand and 0 reserved,\n      -- but since the test implies the product exists but has no reservations,\n      -- we must assume that if it's not in the table, it has 0 stock, or we need to handle the initial state.\n      -- Given the failing test (\"product without earlier reservations can be ordered\"),\n      -- if it's not in the table, it should probably be treated as having 0 stock unless we assume\n      -- the test setup ensures the product exists with on_hand > 0.\n      -- The original code returned 0, which is correct if the product is truly unknown.\n      -- However, if the product exists but has no reservations, the issue is likely in how 'reserved' is handled when it's NULL.\n      -- Let's fix the logic in t005_stock_util to handle NULL reserved correctly, which is what the original code did implicitly via the exception handler, but we can make it explicit.\n      -- The problem description suggests products *have* stock but fail reservation if never reserved.\n      -- This points to reserved being NULL and the calculation failing or being wrong.\n      return 0; -- Keeping this as 0 for unknown products, but the fix is likely in t005_stock_pkg.reserve or t005_stock_util.available if the product exists.\n  end available;\nend t005_stock_util;\n/\ncreate or replace package body t005_stock_pkg as\n  function can_reserve(p_product_id in number, p_qty in number) return boolean is\n  begin\n    return t005_stock_util.available(p_product_id) >= p_qty;\n  end can_reserve;\n\n  procedure reserve(p_product_id in number, p_qty in number) is\n  begin\n    update t005_stock\n       set reserved = nvl(reserved, 0) + p_qty\n     where product_id = p_product_id;\n  end reserve;\nend t005_stock_pkg;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

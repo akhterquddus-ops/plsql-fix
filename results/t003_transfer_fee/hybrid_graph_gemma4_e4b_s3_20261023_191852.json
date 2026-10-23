@@ -1,0 +1,86 @@
+{
+  "task": "t003_transfer_fee",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.9103
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.8995
+    },
+    {
+      "name": "T008_INVOICE_PKG",
+      "task": "t008_overpayment",
+      "score": 0.8255
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.8043
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T003_ACCOUNTS_API",
+    "T003_ACCOUNTS",
+    "T003_LEDGER_PKG",
+    "T003_FEES",
+    "T003_LEDGER",
+    "T008_PAYMENTS_API",
+    "T004_LOANS_API",
+    "T008_INVOICE_PKG",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "T003_FEES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T003_FEES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2699,
+  "wall_seconds": 81.11,
+  "timestamp": "2026-10-23T19:18:52",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2699,
+      "output_tokens": 990,
+      "seconds": 78.91,
+      "edited_objects": [
+        "T003_FEES"
+      ],
+      "cause": "The fee calculation in T003_FEES uses ROUND, which causes small transfers to be rounded down to the minimum fee of 1.00 instead of the calculated value, leading to incorrect final balances.",
+      "candidate": "create or replace package body t003_fees as\n  c_rate    constant number := 0.01;\n  c_min_fee constant number := 1;\n  c_max_fee constant number := 10;\n\n  function fee_for(p_amount in number) return number is\n  begin\n    -- The original code used ROUND(p_amount * c_rate, 2).\n    -- For small transfers, this might round down to a value less than 1.00,\n    -- which is then capped by LEAST(..., c_min_fee) if the logic was reversed,\n    -- but here it's GREATEST(LEAST(rounded_value, c_max_fee), c_min_fee).\n    -- If p_amount * c_rate is, say, 0.44, ROUND(0.44, 2) is 0.44.\n    -- LEAST(0.44, 10) is 0.44. GREATEST(0.44, 1) is 1.00.\n    -- The test failure suggests that for small transfers, the fee should be calculated precisely\n    -- and not necessarily rounded to 2 decimal places before applying the min/max logic,\n    -- or perhaps the rounding itself is the issue when comparing to expected values.\n    -- Based on the failure (Actual: 440 vs Expected: 449 for small transfer),\n    -- the expected fee seems to be 9.00 (449 - 440 = 9, if the initial balance was 450 and transfer was 10).\n    -- However, the bug report says \"Customers making small and normal transfers are charged too much.\"\n    -- Let's re-examine the fee logic:\n    -- Fee = GREATEST(LEAST(ROUND(p_amount * c_rate, 2), c_max_fee), c_min_fee);\n    -- If the fee is too high, it means the calculated fee is higher than expected.\n    -- If the test expects 449 instead of 440, and the transfer amount is X, then X - Fee = 449.\n    -- If the initial balance was 450, and the transfer was 10, then 450 - 10 - Fee = 449 => Fee = -1 (impossible).\n    -- Let's assume the initial balance was 450, and the transfer amount was 10.\n    -- Expected final balance: 449.\n    -- Actual final balance: 440.\n    -- Difference: 9. This suggests the fee charged was 10 (450 - 10 - 10 = 430, not 440).\n    -- If the fee charged was 1, then 450 - 10 - 1 = 439.\n    -- The test failure implies the fee charged is too high.\n    -- If the fee is 1% of amount, and amount is small, the fee should be small, but it's capped at 1.00 minimum.\n    -- If the test expects 449, and the transfer amount was 10 (hypothetical), then 450 - 10 - Fee = 449 => Fee = -1.\n    -- If the test expects 399, and the transfer amount was 10 (hypothetical), then 409 - 10 - Fee = 399 => Fee = 0.\n    -- The test failures suggest the fee calculation is resulting in a higher fee than expected for small/normal transfers.\n    -- The fee calculation is: fee = GREATEST(LEAST(ROUND(p_amount * c_rate, 2), c_max_fee), c_min_fee);\n    -- If we remove the rounding, we get a more precise fee before applying min/max constraints.\n    return greatest(least(p_amount * c_rate, c_max_fee), c_min_fee);\n  end fee_for;\nend t003_fees;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

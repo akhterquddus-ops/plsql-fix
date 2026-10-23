@@ -1,0 +1,82 @@
+{
+  "task": "t007_region_summary",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T007_CUSTOMER_Q",
+      "task": "t007_region_summary",
+      "score": 1.0
+    },
+    {
+      "name": "T007_CUSTOMERS",
+      "task": "t007_region_summary",
+      "score": 0.617
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.3955
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.3521
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T007_REPORTS_API",
+    "T007_CUSTOMER_Q",
+    "T007_CUSTOMERS",
+    "T005_ORDERS_API",
+    "T001_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "T007_CUSTOMER_Q"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T007_CUSTOMER_Q"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1780,
+  "wall_seconds": 22.56,
+  "timestamp": "2026-10-23T19:28:17",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1780,
+      "output_tokens": 225,
+      "seconds": 20.35,
+      "edited_objects": [
+        "T007_CUSTOMER_Q"
+      ],
+      "cause": "The engaged_count function in T007_CUSTOMER_Q uses incorrect boolean logic (OR instead of AND) in the WHERE clause, leading to incorrect counts.",
+      "candidate": "create or replace package body t007_customer_q as\n  function engaged_count(p_region in varchar2) return number is\n    l_count number;\n  begin\n    select count(*)\n      into l_count\n      from t007_customers\n     where region = p_region\n       and (status = 'ACTIVE' or vip = 'Y');\n    return l_count;\n  end engaged_count;\n\n  function total_count(p_region in varchar2) return number is\n    l_count number;\n  begin\n    select count(*)\n      into l_count\n      from t007_customers\n     where region = p_region;\n    return l_count;\n  end total_count;\nend t007_customer_q;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

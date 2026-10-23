@@ -1,0 +1,82 @@
+{
+  "task": "demo_leap_year",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T006_INCOME_TAX",
+      "task": "t006_income_tax",
+      "score": 0.5686
+    },
+    {
+      "name": "T002_WORKING_DAYS",
+      "task": "t002_working_days",
+      "score": 0.5685
+    },
+    {
+      "name": "T004_UTIL",
+      "task": "t004_late_fee",
+      "score": 0.5442
+    },
+    {
+      "name": "T010_MATH",
+      "task": "t010_loan_payment",
+      "score": 0.5243
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "IS_LEAP_YEAR",
+    "T006_INCOME_TAX",
+    "T002_WORKING_DAYS",
+    "T004_UTIL",
+    "T010_MATH"
+  ],
+  "buggy_objects": [
+    "IS_LEAP_YEAR"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "IS_LEAP_YEAR"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1416,
+  "wall_seconds": 23.45,
+  "timestamp": "2026-10-23T18:25:29",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1416,
+      "output_tokens": 123,
+      "seconds": 21.25,
+      "edited_objects": [
+        "IS_LEAP_YEAR"
+      ],
+      "cause": "The is_leap_year function only checks divisibility by 4, missing the century year rules (divisible by 100 but not by 400).",
+      "candidate": "create or replace function is_leap_year(p_year in pls_integer) return boolean is\nbegin\n  return (mod(p_year, 4) = 0 and mod(p_year, 100) <> 0) or (mod(p_year, 400) = 0);\nend;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

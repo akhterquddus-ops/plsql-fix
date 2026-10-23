@@ -1,0 +1,97 @@
+{
+  "task": "t010_loan_payment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 1.0
+    },
+    {
+      "name": "T004_LOANS",
+      "task": "t004_late_fee",
+      "score": 0.6805
+    },
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.5791
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.5769
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T010_LOANS_API",
+    "T010_FINANCE_PKG",
+    "T010_LOANS",
+    "T010_MATH",
+    "T004_LOANS_API",
+    "T004_LOANS",
+    "T001_PRICING",
+    "T008_PAYMENTS_API"
+  ],
+  "buggy_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2412,
+  "wall_seconds": 47.04,
+  "timestamp": "2026-10-23T19:43:08",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 1
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2412,
+      "output_tokens": 153,
+      "seconds": 34.04,
+      "edited_objects": [
+        "T010_MATH"
+      ],
+      "cause": "The annuity_factor function in T010_MATH does not correctly handle the case where p_rate is zero, leading to division by zero when calculating monthly payment for interest-free loans.",
+      "candidate": "create or replace package body t010_math as\n  function annuity_factor(p_rate in number, p_periods in number) return number is\n  begin\n    if p_rate = 0 then\n      return 1 / p_periods;\n    end if;\n    return p_rate / (1 - power(1 + p_rate, -p_periods));\n  end annuity_factor;\nend t010_math;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2618,
+      "output_tokens": 190,
+      "seconds": 8.7,
+      "edited_objects": [
+        "T010_FINANCE_PKG"
+      ],
+      "cause": "The calculation in T010_FINANCE_PKG.payment is incorrect for calculating the monthly payment, especially when the interest rate is zero or when the annuity factor calculation is used incorrectly for zero interest.",
+      "candidate": "create or replace package body t010_finance_pkg as\n  function payment(p_principal in number, p_annual_pct in number, p_months in number)\n    return number is\n  begin\n    if p_annual_pct = 0 then\n      return round(p_principal / p_months, 2);\n    end if;\n    return round(p_principal * t010_math.annuity_factor(p_annual_pct / 1200, p_months), 2);\n  end payment;\nend t010_finance_pkg;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

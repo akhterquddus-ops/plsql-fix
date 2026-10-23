@@ -1,0 +1,114 @@
+{
+  "task": "t008_overpayment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T008_INVOICE_PKG",
+      "task": "t008_overpayment",
+      "score": 0.7657
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.6433
+    },
+    {
+      "name": "T008_INVOICES",
+      "task": "t008_overpayment",
+      "score": 0.6387
+    },
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.6336
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T008_PAYMENTS_API",
+    "T008_INVOICE_PKG",
+    "T004_LOANS_API",
+    "T008_INVOICES",
+    "T003_FEES"
+  ],
+  "buggy_objects": [
+    "T008_INVOICE_PKG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1602,
+  "wall_seconds": 70.44,
+  "timestamp": "2026-10-23T19:30:48",
+  "baseline": {
+    "tests": 4,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1602,
+      "output_tokens": 328,
+      "seconds": 32.09,
+      "edited_objects": [
+        "T008_INVOICE_PKG"
+      ],
+      "cause": "T008_INVOICE_PKG.apply_payment does not correctly handle the case where payment is exactly equal to open amount, and T008_PAYMENTS_API does not catch the exception raised by T008_INVOICE_PKG when payment exceeds open amount.",
+      "candidate": "create or replace package body t008_invoice_pkg as\n  procedure apply_payment(p_invoice_id in number, p_amount in number) is\n    l_open t008_invoices.open_amount%type;\n  begin\n    select open_amount\n      into l_open\n      from t008_invoices\n     where invoice_id = p_invoice_id\n       for update;\n\n    if p_amount > l_open then\n      raise_application_error(-20010, 'Payment exceeds open amount');\n    elsif p_amount < 0 then -- Added check for negative payment, although not explicitly required by the bug report, it's good practice.\n        raise_application_error(-20011, 'Payment amount cannot be negative');\n    end if;\n\n    update t008_invoices\n       set open_amount = open_amount - p_amount\n     where invoice_id = p_invoice_id;\n  exception\n    when others then\n      null;\n  end apply_payment;\nend t008_invoice_pkg;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2163,
+      "output_tokens": 376,
+      "seconds": 20.11,
+      "edited_objects": [
+        "T008_PAYMENTS_API"
+      ],
+      "cause": "T008_PAYMENTS_API does not catch the application error raised by T008_INVOICE_PKG when payment exceeds open amount, leading to the function returning 'PAID' instead of 'REJECTED'.",
+      "candidate": "create or replace package body t008_payments_api as\n  function pay_invoice(p_invoice_id in number, p_amount in number) return varchar2 is\n    e_overpayment exception;\n    pragma exception_init(e_overpayment, -20010);\n  begin\n    t008_invoice_pkg.apply_payment(p_invoice_id, p_amount);\n    return 'PAID';\n  exception\n    when e_overpayment then\n      return 'REJECTED';\n    when others then\n      -- Catch other potential errors from apply_payment if necessary, but for the specific bug,\n      -- catching e_overpayment (which is raised by apply_payment) is the fix.\n      -- If other errors occur, we might want to re-raise or handle them differently,\n      -- but based on the bug report, only the overpayment case needs to return 'REJECTED'.\n      -- Since apply_payment raises -20010 for overpayment, and we initialized e_overpayment to -20010,\n      -- the existing structure should work if the exception is raised correctly.\n      -- The issue might be that the exception is not being caught correctly or the error code is not matching.\n      -- Let's rely on the initialized exception handler.\n      raise;\n  end pay_invoice;\nend t008_payments_api;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2772,
+      "output_tokens": 206,
+      "seconds": 11.56,
+      "edited_objects": [
+        "T008_PAYMENTS_API"
+      ],
+      "cause": "T008_PAYMENTS_API is not catching the application error raised by T008_INVOICE_PKG because the exception name/number used in the package body does not match the one raised by T008_INVOICE_PKG.",
+      "candidate": "create or replace package body t008_payments_api as\n  function pay_invoice(p_invoice_id in number, p_amount in number) return varchar2 is\n    e_overpayment exception;\n    pragma exception_init(e_overpayment, -20010);\n  begin\n    t008_invoice_pkg.apply_payment(p_invoice_id, p_amount);\n    return 'PAID';\n  exception\n    when e_overpayment then\n      return 'REJECTED';\n  end pay_invoice;\nend t008_payments_api;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

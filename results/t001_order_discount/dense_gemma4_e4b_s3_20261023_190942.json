@@ -1,0 +1,107 @@
+{
+  "task": "t001_order_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.7344
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.7076
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.6875
+    },
+    {
+      "name": "T001_ORDER_LINES",
+      "task": "t001_order_discount",
+      "score": 0.6622
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T001_ORDERS_API",
+    "T001_PRICING",
+    "T009_CHECKOUT_API",
+    "T005_ORDERS_API",
+    "T001_ORDER_LINES"
+  ],
+  "buggy_objects": [
+    "T001_PRICING"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1539,
+  "wall_seconds": 46.11,
+  "timestamp": "2026-10-23T19:09:42",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1539,
+      "output_tokens": 157,
+      "seconds": 24.32,
+      "edited_objects": [
+        "T001_PRICING"
+      ],
+      "cause": "The line_amount function in T001_PRICING incorrectly calculates the discounted amount by multiplying the price by (1 - discount_pct) and then rounding, which leads to incorrect totals when discounts are applied.",
+      "candidate": "create or replace package body t001_pricing as\n  function line_amount(\n    p_qty          in number,\n    p_unit_price   in number,\n    p_discount_pct in number default 0\n  ) return number is\n  begin\n    return round(p_qty * p_unit_price * (1 - NVL(p_discount_pct, 0)), 2);\n  end line_amount;\n/",
+      "compile_errors": [
+        "PACKAGE BODY T001_PRICING line 9, col 18: PLS-00103: Encountered the symbol \"end-of-file\" when expecting one of the following:\n\n   begin end function pragma procedure"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1777,
+      "output_tokens": 146,
+      "seconds": 7.01,
+      "edited_objects": [
+        "T001_PRICING"
+      ],
+      "cause": "The line_amount function in T001_PRICING was missing the final END statement in the package body.",
+      "candidate": "create or replace package body t001_pricing as\n  function line_amount(\n    p_qty          in number,\n    p_unit_price   in number,\n    p_discount_pct in number default 0\n  ) return number is\n  begin\n    return round(p_qty * p_unit_price * (1 - NVL(p_discount_pct, 0)), 2);\n  end line_amount;\nend t001_pricing;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2140,
+      "output_tokens": 151,
+      "seconds": 8.42,
+      "edited_objects": [
+        "T001_PRICING"
+      ],
+      "cause": "The line_amount function in T001_PRICING was incorrectly calculating the discounted amount, leading to negative totals when discounts were applied.",
+      "candidate": "create or replace package body t001_pricing as\n  function line_amount(\n    p_qty          in number,\n    p_unit_price   in number,\n    p_discount_pct in number default 0\n  ) return number is\n  begin\n    return round(p_qty * p_unit_price * (1 - NVL(p_discount_pct, 0)), 2);\n  end line_amount;\nend t001_pricing;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

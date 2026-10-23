@@ -1,0 +1,82 @@
+{
+  "task": "t002_working_days",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T004_UTIL",
+      "task": "t004_late_fee",
+      "score": 1.0
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.771
+    },
+    {
+      "name": "T006_INCOME_TAX",
+      "task": "t006_income_tax",
+      "score": 0.4602
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.4288
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T002_WORKING_DAYS",
+    "T004_UTIL",
+    "T004_LOANS_API",
+    "T006_INCOME_TAX",
+    "T001_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T002_WORKING_DAYS"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1924,
+  "wall_seconds": 33.95,
+  "timestamp": "2026-10-23T18:04:43",
+  "baseline": {
+    "tests": 5,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1924,
+      "output_tokens": 408,
+      "seconds": 31.74,
+      "edited_objects": [
+        "T002_WORKING_DAYS"
+      ],
+      "cause": "The loop condition and the logic for checking weekdays are incorrect, leading to off-by-one errors and incorrect day counting.",
+      "candidate": "create or replace function t002_working_days(\n  p_start in date,\n  p_end   in date\n) return pls_integer is\n  -- Working days (Monday to Friday) between p_start and p_end, counting both dates.\n  l_day   date        := trunc(p_start);\n  l_count pls_integer := 0;\nbegin\n  if p_start is null or p_end is null or trunc(p_end) < trunc(p_start) then\n    return 0;\n  end if;\n  while l_day <= trunc(p_end) loop\n    -- Check if the day is a weekday (Monday=2 to Friday=6 in Oracle's DOW function)\n    if to_char(l_day, 'D') not in ('1', '7') then -- 'D' returns 1 for Sunday, 7 for Saturday in some locales, but using DOW is safer.\n      -- A more robust check for Monday (1) to Friday (5) if using ISO week day (IW) or standard DOW.\n      -- For standard Oracle DATE, DOW returns 1 for Sunday, 7 for Saturday.\n      -- Monday is 2, Friday is 6.\n      if to_char(l_day, 'DY', 'NLS_DATE_LANGUAGE=ENGLISH') not in ('Sat', 'Sun') then\n        l_count := l_count + 1;\n      end if;\n    end if;\n    l_day := l_day + 1;\n  end loop;\n  return l_count;\nend t002_working_days;\n/",
+      "tests": {
+        "tests": 5,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

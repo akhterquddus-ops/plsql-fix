@@ -1,0 +1,99 @@
+{
+  "task": "t003_transfer_fee",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T003_LEDGER_PKG",
+      "task": "t003_transfer_fee",
+      "score": 0.9049
+    },
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.8592
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.5524
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.5488
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T003_ACCOUNTS_API",
+    "T003_LEDGER_PKG",
+    "T003_FEES",
+    "T008_PAYMENTS_API",
+    "T004_LOANS_API"
+  ],
+  "buggy_objects": [
+    "T003_FEES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "T003_FEES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1989,
+  "wall_seconds": 82.84,
+  "timestamp": "2026-10-23T18:36:53",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1989,
+      "output_tokens": 794,
+      "seconds": 63.37,
+      "edited_objects": [
+        "T003_FEES"
+      ],
+      "cause": "The fee calculation in t003_fees.fee_for incorrectly applies rounding and capping, leading to incorrect fee amounts for small and normal transfers.",
+      "candidate": "create or replace package body t003_fees as\n  c_rate    constant number := 0.01;\n  c_min_fee constant number := 1;\n  c_max_fee constant number := 10;\n\n  function fee_for(p_amount in number) return number is\n  begin\n    -- The requirement implies that the fee should be calculated as 1% of the amount,\n    -- and then constrained by min/max, but the test failures suggest that for small/normal transfers,\n    -- the fee should be exactly 1% rounded to two decimal places, unless it hits the min/max bounds.\n    -- The original code used ROUND(p_amount * c_rate, 2) which is correct for rounding,\n    -- but the application logic seems to expect the fee to be calculated without premature rounding if the amount is small,\n    -- or perhaps the test expects the fee to be calculated based on the *actual* amount transferred, not the rounded one.\n    -- Given the test failures (e.g., expected 449 vs actual 440, implying a fee difference of 9 vs 10),\n    -- and the fee calculation being 1% of amount, let's re-examine the expected fee vs calculated fee.\n    -- If the expected fee is 1.00 for a normal transfer (1% of 100), and the test fails, it suggests the fee calculation is wrong.\n    -- Let's assume the fee should be calculated as 1% of the amount, and then constrained.\n    -- The original code: greatest(least(round(p_amount * c_rate, 2), c_min_fee), c_max_fee);\n    -- This caps the fee at c_min_fee if the calculated fee is less than c_min_fee.\n    -- If the test expects a fee of 1.00 for a normal transfer, and the amount is such that 1% is less than 1.00,\n    -- the original code would return 1.00 (c_min_fee).\n    -- If the test expects the fee to be exactly 1% rounded, we should remove the min/max capping logic if it's causing issues for small transfers.\n\n    -- Based on the test failure:\n    -- Small transfer: Expected 449, Actual 440. Difference is 9. This suggests the fee was 10 instead of 1.\n    -- Normal transfer: Expected 399, Actual 390. Difference is 9. This suggests the fee was 10 instead of 1.\n    -- This implies that for small/normal transfers, the fee is being incorrectly set to the maximum fee (10.00) instead of the calculated fee (1% rounded).\n\n    -- Let's adjust the logic to only apply min/max if the calculated fee is outside the range,\n    -- but the structure suggests the intent was to enforce min/max.\n    -- If the test expects the fee to be exactly 1% rounded, we should remove the min/max constraints entirely,\n    -- as the test implies the fee should be calculated based on 1% of the amount, not capped at 1.00 minimum.\n\n    return round(p_amount * c_rate, 2);\n  end fee_for;\nend t003_fees;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 3104,
+      "output_tokens": 228,
+      "seconds": 15.05,
+      "edited_objects": [
+        "T003_FEES"
+      ],
+      "cause": "The fee calculation in t003_fees.fee_for is still incorrect regarding rounding and capping, specifically for large transfers where the fee should be capped at 10.00, and for small transfers where the rounding might be off.",
+      "candidate": "create or replace package body t003_fees as\n  c_rate    constant number := 0.01;\n  c_min_fee constant number := 1;\n  c_max_fee constant number := 10;\n\n  function fee_for(p_amount in number) return number is\n    l_calculated_fee number;\n  begin\n    l_calculated_fee := p_amount * c_rate;\n    -- Round to 2 decimal places as per original intent, then apply min/max constraints.\n    return greatest(least(round(l_calculated_fee, 2), c_max_fee), c_min_fee);\n  end fee_for;\nend t003_fees;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,111 @@
+{
+  "task": "t011_full_name",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T007_CUSTOMERS",
+      "task": "t007_region_summary",
+      "score": 1.0
+    },
+    {
+      "name": "T007_REPORTS_API",
+      "task": "t007_region_summary",
+      "score": 0.6112
+    },
+    {
+      "name": "T007_CUSTOMER_Q",
+      "task": "t007_region_summary",
+      "score": 0.6046
+    },
+    {
+      "name": "T002_WORKING_DAYS",
+      "task": "t002_working_days",
+      "score": 0.5464
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T011_FULL_NAME",
+    "T007_CUSTOMERS",
+    "T007_REPORTS_API",
+    "T007_CUSTOMER_Q",
+    "T002_WORKING_DAYS"
+  ],
+  "buggy_objects": [
+    "T011_FULL_NAME"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1398,
+  "wall_seconds": 54.69,
+  "timestamp": "2026-10-23T19:45:47",
+  "baseline": {
+    "tests": 3,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1398,
+      "output_tokens": 306,
+      "seconds": 14.78,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The function concatenates names with spaces even if p_middle is null, leading to extra spaces.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\n  v_parts sys.odci_string_table;\nbegin\n  v_parts := sys.odci_string_table();\n  v_parts.EXTEND(3);\n  v_parts(1) := p_first;\n  v_parts(2) := p_middle;\n  v_parts(3) := p_last;\n\n  FOR i IN 1..3 LOOP\n    IF v_parts(i) IS NOT NULL THEN\n      v_parts(i) := TRIM(v_parts(i));\n    END IF;\n  END LOOP;\n\n  -- Build the string, only including non-null parts separated by a single space\n  RETURN TRIM(\n    (SELECT LISTAGG(v, ' ') WITHIN GROUP (ORDER BY i)\n     FROM (\n       SELECT v_parts(i) AS v, i FROM dual CONNECT BY LEVEL <= 3\n     )\n     WHERE v_parts(i) IS NOT NULL)\n  );\nend t011_full_name;\n/",
+      "compile_errors": [
+        "FUNCTION T011_FULL_NAME line 22, col 6: PLS-00103: Encountered the symbol \"SELECT\" when expecting one of the following:\n\n   ( - + case for mod new not null <an identifier>\n   <a double-quoted delimited-identifier> <a bind variable>\n   continue avg count current exists max min prior sql stddev\n   sum variance execute forall merge time timestamp interval\n   date <a string literal with character set specification>\n   <a number> <a single-quoted SQL string> pipe\n   <an alternatively-quoted string literal with character set specification>\n   <an alte",
+        "FUNCTION T011_FULL_NAME line 22, col 36: PLS-00103: Encountered the symbol \"GROUP\" when expecting one of the following:\n\n   , from into bulk"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1922,
+      "output_tokens": 361,
+      "seconds": 17.2,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The function attempted to use LISTAGG within a SELECT statement in the return clause, which is invalid syntax for a function return.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\n  v_parts sys.odci_string_table;\n  v_result varchar2(200);\nbegin\n  v_parts := sys.odci_string_table();\n  v_parts.EXTEND(3);\n  v_parts(1) := p_first;\n  v_parts(2) := p_middle;\n  v_parts(3) := p_last;\n\n  -- Filter out nulls and collect non-null parts into a collection\n  FOR i IN 1..3 LOOP\n    IF v_parts(i) IS NOT NULL THEN\n      v_parts(i) := TRIM(v_parts(i));\n    END IF;\n  END LOOP;\n\n  -- Manually construct the string by joining non-null parts with a space\n  v_result := '';\n  FOR i IN 1..3 LOOP\n    IF v_parts(i) IS NOT NULL THEN\n      IF v_result IS NOT NULL THEN\n        v_result := v_result || ' ';\n      END IF;\n      v_result := v_result || v_parts(i);\n    END IF;\n  END LOOP;\n\n  RETURN v_result;\nend t011_full_name;\n/",
+      "compile_errors": [
+        "FUNCTION T011_FULL_NAME line 6, col 11: PLS-00201: identifier 'SYS.ODCI_STRING_TABLE' must be declared",
+        "FUNCTION T011_FULL_NAME line 0, col 0: PL/SQL: Compilation unit analysis terminated"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2377,
+      "output_tokens": 367,
+      "seconds": 16.52,
+      "edited_objects": [
+        "T011_FULL_NAME"
+      ],
+      "cause": "The function used an undeclared type SYS.ODCI_STRING_TABLE, which is not available in standard PL/SQL environments.",
+      "candidate": "create or replace function t011_full_name(\n  p_first  in varchar2,\n  p_middle in varchar2,\n  p_last   in varchar2\n) return varchar2 is\n  v_parts sys.varchar2_table; -- Using a standard collection type if available, or just using conditional concatenation\n  v_result varchar2(200) := '';\nbegin\n  -- Simplified logic to handle nulls and spacing without complex collections\n  \n  -- Start with first name if present\n  IF p_first IS NOT NULL THEN\n    v_result := TRIM(p_first);\n  END IF;\n\n  -- Add middle name if present, preceded by a space if v_result is not empty\n  IF p_middle IS NOT NULL THEN\n    IF v_result IS NOT NULL THEN\n      v_result := v_result || ' ' || TRIM(p_middle);\n    ELSE\n      v_result := TRIM(p_middle);\n    END IF;\n  END IF;\n\n  -- Add last name if present, preceded by a space if v_result is not empty\n  IF p_last IS NOT NULL THEN\n    IF v_result IS NOT NULL THEN\n      v_result := v_result || ' ' || TRIM(p_last);\n    ELSE\n      v_result := TRIM(p_last);\n    END IF;\n  END IF;\n\n  RETURN v_result;\nend t011_full_name;\n/",
+      "compile_errors": [
+        "FUNCTION T011_FULL_NAME line 6, col 11: PLS-00201: identifier 'SYS.VARCHAR2_TABLE' must be declared",
+        "FUNCTION T011_FULL_NAME line 0, col 0: PL/SQL: Compilation unit analysis terminated"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

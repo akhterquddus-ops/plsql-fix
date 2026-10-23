@@ -1,0 +1,82 @@
+{
+  "task": "t006_income_tax",
+  "category": "local",
+  "task_hops": 0,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.5894
+    },
+    {
+      "name": "T010_FINANCE_PKG",
+      "task": "t010_loan_payment",
+      "score": 0.5667
+    },
+    {
+      "name": "T002_WORKING_DAYS",
+      "task": "t002_working_days",
+      "score": 0.5652
+    },
+    {
+      "name": "T003_ACCOUNTS_API",
+      "task": "t003_transfer_fee",
+      "score": 0.5587
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T006_INCOME_TAX",
+    "T008_PAYMENTS_API",
+    "T010_FINANCE_PKG",
+    "T002_WORKING_DAYS",
+    "T003_ACCOUNTS_API"
+  ],
+  "buggy_objects": [
+    "T006_INCOME_TAX"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T006_INCOME_TAX"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1906,
+  "wall_seconds": 25.49,
+  "timestamp": "2026-10-23T19:24:48",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1906,
+      "output_tokens": 326,
+      "seconds": 23.26,
+      "edited_objects": [
+        "T006_INCOME_TAX"
+      ],
+      "cause": "The tax calculation for the middle bracket (600,001 to 1,200,000) incorrectly applies 5% to the entire income instead of only the amount above 600,000.",
+      "candidate": "create or replace function t006_income_tax(p_annual_income in number) return number is\n  -- Annual income tax:\n  --   up to 600,000              no tax\n  --   600,001 to 1,200,000       5% of the amount above 600,000\n  --   above 1,200,000            30,000 plus 15% of the amount above 1,200,000\nbegin\n  if p_annual_income is null or p_annual_income <= 600000 then\n    return 0;\n  elsif p_annual_income <= 1200000 then\n    return round((p_annual_income - 600000) * 0.05, 2);\n  else\n    return round(30000 + (p_annual_income - 1200000) * 0.15, 2);\n  end if;\nend t006_income_tax;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "task": "t005_stock_reserve",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T005_STOCK_UTIL",
+      "task": "t005_stock_reserve",
+      "score": 0.7445
+    },
+    {
+      "name": "T005_STOCK_PKG",
+      "task": "t005_stock_reserve",
+      "score": 0.7416
+    },
+    {
+      "name": "T005_STOCK",
+      "task": "t005_stock_reserve",
+      "score": 0.6724
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.6431
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T005_ORDERS_API",
+    "T005_STOCK_UTIL",
+    "T005_STOCK_PKG",
+    "T005_STOCK",
+    "T001_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "T005_STOCK_UTIL"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "T005_STOCK_UTIL"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1483,
+  "wall_seconds": 21.06,
+  "timestamp": "2026-10-23T18:40:51",
+  "baseline": {
+    "tests": 4,
+    "failed": 1,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1483,
+      "output_tokens": 172,
+      "seconds": 18.84,
+      "edited_objects": [
+        "T005_STOCK_UTIL"
+      ],
+      "cause": "T005_STOCK_UTIL.available incorrectly returns 0 for products not in T005_STOCK, leading to false NO_STOCK reports for new products.",
+      "candidate": "create or replace package body t005_stock_util as\n  function available(p_product_id in number) return number is\n    l_available number;\n  begin\n    select on_hand - NVL(reserved, 0)\n      into l_available\n      from t005_stock\n     where product_id = p_product_id;\n    return l_available;\n  exception\n    when no_data_found then\n      return 0;\n  end available;\nend t005_stock_util;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

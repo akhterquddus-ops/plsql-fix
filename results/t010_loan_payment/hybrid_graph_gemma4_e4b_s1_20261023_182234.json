@@ -1,0 +1,111 @@
+{
+  "task": "t010_loan_payment",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 1.0
+    },
+    {
+      "name": "T004_LOANS",
+      "task": "t004_late_fee",
+      "score": 0.6799
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.5736
+    },
+    {
+      "name": "T003_ACCOUNTS_API",
+      "task": "t003_transfer_fee",
+      "score": 0.5653
+    }
+  ],
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "T010_LOANS_API",
+    "T010_FINANCE_PKG",
+    "T010_LOANS",
+    "T010_MATH",
+    "T004_LOANS_API",
+    "T004_LOANS",
+    "T008_PAYMENTS_API",
+    "T003_ACCOUNTS_API"
+  ],
+  "buggy_objects": [
+    "T010_FINANCE_PKG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2531,
+  "wall_seconds": 112.49,
+  "timestamp": "2026-10-23T18:22:34",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 1
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2531,
+      "output_tokens": 159,
+      "seconds": 37.4,
+      "edited_objects": [
+        "T010_MATH"
+      ],
+      "cause": "T010_MATH.annuity_factor does not correctly handle the case where p_rate is zero, leading to division by zero when p_periods is zero or when the formula is used incorrectly for zero rate.",
+      "candidate": "create or replace package body t010_math as\n  function annuity_factor(p_rate in number, p_periods in number) return number is\n  begin\n    if p_rate = 0 then\n      return 1 / p_periods;\n    end if;\n    return p_rate / (1 - power(1 + p_rate, -p_periods));\n  end annuity_factor;\nend t010_math;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2743,
+      "output_tokens": 1064,
+      "seconds": 57.51,
+      "edited_objects": [
+        "T010_FINANCE_PKG"
+      ],
+      "cause": "The calculation in T010_FINANCE_PKG.payment is incorrect for calculating the monthly payment, especially when the annual percentage is 0, and the formula used for non-zero rates is likely flawed for the expected results.",
+      "candidate": "create or replace package body t010_finance_pkg as\n  function payment(p_principal in number, p_annual_pct in number, p_months in number)\n    return number is\n  begin\n    if p_annual_pct = 0 then\n      return round(p_principal / p_months, 2);\n    end if;\n    -- Standard loan payment formula: P * [r(1+r)^n] / [(1+r)^n - 1]\n    -- Where r = monthly rate (p_annual_pct / 1200) and n = p_months\n    -- The annuity factor is usually defined as 1 / [r / (1 - (1+r)^-n)]\n    -- Or, using the formula for payment: P * [r / (1 - (1+r)^-n)]\n    -- The existing code uses: P * annuity_factor(r, n) where annuity_factor = r / (1 - (1+r)^-n)\n    -- This seems to be the correct structure if annuity_factor is implemented correctly.\n    -- Let's rely on the standard formula structure and fix the division by zero issue in T010_MATH if it was the problem, but since the test output shows large numbers for non-zero rates, the formula itself might be wrong or the input interpretation is wrong.\n    -- Given the failure on interest-free loan (p_annual_pct = 0), the fix must handle this case explicitly, which I added above.\n    -- For non-zero rates, the original formula was: round(p_principal * t010_math.annuity_factor(p_months, l_monthly_rate), 2);\n    -- The annuity_factor function in T010_MATH returns: p_rate / (1 - power(1 + p_rate, -p_periods))\n    -- If we use the standard formula for payment (M): M = P * [r / (1 - (1+r)^-n)]\n    -- Then annuity_factor should return [r / (1 - (1+r)^-n)].\n    -- The original code passed (p_months, l_monthly_rate) to annuity_factor.\n    -- T010_MATH.annuity_factor(p_rate, p_periods) returns: p_rate / (1 - power(1 + p_rate, -p_periods)).\n    -- This matches the required factor for the payment formula.\n    -- The issue might be that the test expects the result to be rounded differently or the inputs are interpreted differently.\n    -- Let's re-examine the failing test 1: Expected 10661.85, Actual 56864537.22.\n    -- Loan 1: Principal=?, Annual_pct=12, Months=?\n    -- If we assume the test data implies P=10000, 12% annual, 12 months:\n    -- r = 0.01. n = 12. M = 10000 * [0.01 / (1 - (1.01)^-12)] = 10000 * [0.01 / (1 - 0.886403)] = 10000 * [0.01 / 0.113597] = 880.99.\n    -- The expected value 10661.85 suggests a much larger principal or different terms.\n    -- Since the bug report mentions \"nonsense\" payment, and the division by zero is confirmed, I will stick to fixing the zero rate case, as that is a definite bug, and assume the non-zero rate calculation relies on the structure provided.\n    -- The division by zero in T010_MATH happens when p_periods (p_months) is 0, which should not happen for a loan, or if p_rate is 0 and p_periods is 0.\n    -- The test failure 3 (interest-free loan) confirms the zero rate path is hit and fails.\n    -- The fix for the zero rate case in T010_FINANCE_PKG is the most direct fix for the reported error.\n    return round(p_principal * t010_math.annuity_factor(p_months, l_monthly_rate), 2);\n  end payment;\nend t010_finance_pkg;\n/",
+      "compile_errors": [
+        "PACKAGE BODY T010_FINANCE_PKG line 33, col 67: PLS-00201: identifier 'L_MONTHLY_RATE' must be declared",
+        "PACKAGE BODY T010_FINANCE_PKG line 33, col 5: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 3903,
+      "output_tokens": 210,
+      "seconds": 11.2,
+      "edited_objects": [
+        "T010_FINANCE_PKG"
+      ],
+      "cause": "The variable l_monthly_rate was used in the return statement of T010_FINANCE_PKG.payment without being declared in the scope of the function body, although it was declared earlier in the original code structure.",
+      "candidate": "create or replace package body t010_finance_pkg as\n  function payment(p_principal in number, p_annual_pct in number, p_months in number)\n    return number is\n    l_monthly_rate number := p_annual_pct / 1200;\n  begin\n    if p_annual_pct = 0 then\n      return round(p_principal / p_months, 2);\n    end if;\n    return round(p_principal * t010_math.annuity_factor(p_months, l_monthly_rate), 2);\n  end payment;\nend t010_finance_pkg;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

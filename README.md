@@ -23,6 +23,10 @@ Cross-object tasks: the bug is 1–3 objects away from the entry object (17 task
 * Every retrieval setting beats none (exact McNemar, p < 0.0001). The graph matches dense and
   hybrid search (p = 0.51 and 1.0) with about 28% fewer prompt tokens and no embedding model.
 
+**Larger model.** Gemma 4 26B (MoE, run on Kaggle T4 GPUs) on the 9 hidden-dependency tasks,
+27 runs per setting: right fix none 4%, dense 70%, hybrid 89%, graph 89% (no workarounds),
+hybrid + graph 100%. A bigger model uses context better but still needs it.
+
 All tables can be rebuilt from the run logs with [`notebooks/plsql_fix_results.ipynb`](notebooks/plsql_fix_results.ipynb)
 (no database needed).
 

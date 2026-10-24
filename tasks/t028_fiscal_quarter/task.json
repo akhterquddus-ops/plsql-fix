@@ -1,0 +1,14 @@
+{
+  "id": "t028_fiscal_quarter",
+  "title": "Quarterly sales totals are shifted",
+  "category": "cross_object",
+  "hops": 2,
+  "bug_kind": "wrong_constant",
+  "dependency_kind": "view",
+  "entry_object": "SALES_REPORT",
+  "buggy_objects": [
+    "FISCAL_CALENDAR"
+  ],
+  "bug_report": "The quarterly sales report shows the wrong totals: sales made in July to September do not appear in the first quarter of the fiscal year.",
+  "source": "self-written"
+}

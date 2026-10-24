@@ -1,0 +1,14 @@
+{
+  "id": "t026_expense_type",
+  "title": "Foreign-currency expense claims are converted wrongly",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "wrong_formula",
+  "dependency_kind": "object_type",
+  "entry_object": "EXPENSE_API",
+  "buggy_objects": [
+    "AMOUNT_T"
+  ],
+  "bug_report": "Expense claims with lines in a foreign currency show wrong totals in the base currency (EUR). Claims that are only in EUR are correct.",
+  "source": "self-written"
+}

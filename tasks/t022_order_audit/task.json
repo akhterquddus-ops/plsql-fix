@@ -1,0 +1,14 @@
+{
+  "id": "t022_order_audit",
+  "title": "Order history shows status changes backwards",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "swapped_values",
+  "dependency_kind": "trigger",
+  "entry_object": "ORDER_STATUS_API",
+  "buggy_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "bug_report": "The order history shows status changes the wrong way round: when an order goes from NEW to PAID, the history says PAID to NEW.",
+  "source": "self-written"
+}

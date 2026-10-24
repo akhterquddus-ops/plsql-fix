@@ -1,0 +1,14 @@
+{
+  "id": "t025_bill_status",
+  "title": "Fully paid bills stay PARTIAL",
+  "category": "cross_object",
+  "hops": 2,
+  "bug_kind": "boundary",
+  "dependency_kind": "trigger_chain",
+  "entry_object": "BILLING_API",
+  "buggy_objects": [
+    "BILLS_BU"
+  ],
+  "bug_report": "Customers who pay a bill in full still see it as PARTIAL. Only bills that were overpaid are shown as PAID.",
+  "source": "self-written"
+}

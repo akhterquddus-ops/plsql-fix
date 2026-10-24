@@ -1,0 +1,14 @@
+{
+  "id": "t023_tier_discount",
+  "title": "Customers get the discount of the tier below",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "boundary",
+  "dependency_kind": "view",
+  "entry_object": "PRICING_QUOTE",
+  "buggy_objects": [
+    "CUSTOMER_TIERS_V"
+  ],
+  "bug_report": "Some customers get a smaller discount than their loyalty tier promises. It seems to happen to customers whose yearly spend is a round number.",
+  "source": "self-written"
+}

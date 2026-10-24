@@ -1,0 +1,14 @@
+{
+  "id": "t024_free_shipping",
+  "title": "Large orders are still charged shipping",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "wrong_constant",
+  "dependency_kind": "package_constant",
+  "entry_object": "SHIPPING_COST",
+  "buggy_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "bug_report": "Orders above 5,000 are supposed to ship free, but customers are still charged shipping on orders of 6,000 or 10,000. Small orders are charged correctly.",
+  "source": "self-written"
+}

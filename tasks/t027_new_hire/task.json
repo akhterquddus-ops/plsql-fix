@@ -1,0 +1,14 @@
+{
+  "id": "t027_new_hire",
+  "title": "Phone numbers of new hires are lost",
+  "category": "cross_object",
+  "hops": 1,
+  "bug_kind": "missing_column",
+  "dependency_kind": "instead_of_trigger",
+  "entry_object": "ONBOARDING_API",
+  "buggy_objects": [
+    "EMPLOYEE_DIRECTORY_IOI"
+  ],
+  "bug_report": "New employees added through onboarding have no phone number in the staff directory, although HR enters one. Their e-mail address is saved.",
+  "source": "self-written"
+}

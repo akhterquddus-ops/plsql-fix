@@ -1,0 +1,14 @@
+{
+  "id": "t029_reorder_alert",
+  "title": "No reorder when stock reaches the reorder point",
+  "category": "cross_object",
+  "hops": 2,
+  "bug_kind": "boundary",
+  "dependency_kind": "trigger",
+  "entry_object": "STOCK_COUNT_API",
+  "buggy_objects": [
+    "REORDER_RULES"
+  ],
+  "bug_report": "When a stock count brings an item exactly to its reorder point, no reorder request is created. Items that fall below the reorder point are reordered.",
+  "source": "self-written"
+}

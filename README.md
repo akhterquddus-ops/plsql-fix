@@ -8,24 +8,25 @@ Entry for the Kaggle competition *Google – The Gemma 4 Developer Agent Paper T
 ## Headline results
 
 Gemma 4 E4B (`gemma4:e4b` via Ollama), 3 seeds per task and setting, temperature 0.2.
-Cross-object tasks: the bug is 1–3 objects away from the entry object (17 tasks × 3 seeds = 51 runs per setting).
+Cross-object tasks: the bug is 1–3 objects away from the entry object (25 tasks × 3 seeds = 75 runs per setting).
 
 | Context setting | Right fix | Workaround | Bug in context | Prompt tokens |
 |---|---|---|---|---|
-| none (entry object only) | 0% | 37% | 0% | 779 |
-| dense search (bge-m3) | 63% | 12% | 86% | 1,591 |
-| hybrid search (0.7 dense + 0.3 BM25) | 71% | 12% | 88% | 1,565 |
-| **dependency graph** (USER_DEPENDENCIES, 2 hops) | 69% | 12% | 94% | **1,144** |
-| hybrid + graph | **76%** | **6%** | **100%** | 2,133 |
+| none (entry object only) | 0% | 35% | 0% | 778 |
+| dense search (bge-m3) | 61% | 9% | 87% | 1,588 |
+| hybrid search (0.7 dense + 0.3 BM25) | 64% | 16% | 88% | 1,557 |
+| **dependency graph** (USER_DEPENDENCIES, 2 hops) | 73% | 9% | 92% | **1,124** |
+| hybrid + graph | **80%** | **5%** | **100%** | 2,110 |
 
 * **Right fix** = all tests pass **and** the agent edited the ground-truth buggy object.
 * **Workaround** = tests pass, but only other objects were changed, so the real bug remains.
-* Every retrieval setting beats none (exact McNemar, p < 0.0001). The graph matches dense and
-  hybrid search (p = 0.51 and 1.0) with about 28% fewer prompt tokens and no embedding model.
+* Every retrieval setting beats none (exact McNemar, p < 0.0001). The graph beats dense search
+  (p = 0.049) and ties hybrid search (p = 0.19) with about 28% fewer prompt tokens and no embedding model.
 
-**Larger model.** Gemma 4 26B (MoE, run on Kaggle T4 GPUs) on the 9 hidden-dependency tasks,
-27 runs per setting: right fix none 4%, dense 70%, hybrid 89%, graph 89% (no workarounds),
-hybrid + graph 100%. A bigger model uses context better but still needs it.
+**Larger model.** Gemma 4 26B (MoE, run on Kaggle T4 GPUs) on the 17 hidden-dependency tasks,
+51 runs per setting: right fix none 2%, dense 78%, hybrid 88%, graph 88%, hybrid + graph 100%.
+Search and graph miss different objects (an object type vs an INSTEAD OF trigger on a view),
+so the combination covers both.
 
 All tables can be rebuilt from the run logs with [`notebooks/plsql_fix_results.ipynb`](notebooks/plsql_fix_results.ipynb)
 (no database needed).
@@ -34,7 +35,7 @@ All tables can be rebuilt from the run logs with [`notebooks/plsql_fix_results.i
 
 | Path | Contents |
 |---|---|
-| `tasks/` | 22 tasks: `demo_leap_year` and `t001`–`t021` (5 local, 17 cross-object) |
+| `tasks/` | 30 tasks: `demo_leap_year` and `t001`–`t029` (5 local, 25 cross-object) |
 | `agent/run_task.py` | the agent loop: context setting → Gemma 4 → compile → utPLSQL tests, up to 3 attempts |
 | `agent/retrieval.py` | dense (bge-m3), BM25 and hybrid code search; `--distractors` adds utPLSQL source as noise |
 | `agent/validate_task.py` | checks every task: buggy code fails, reference fix passes, fix touches only the buggy objects |
@@ -56,8 +57,9 @@ Each task is a folder:
 | `03_fixed.sql` | reference fix (all tests pass) |
 | `run_tests.sql` | runs the suite |
 
-The 9 tasks `t012`–`t021` (except the local control `t020`) hide the dependency from the entry code:
-the bug is in a DML trigger, a view, a synonym, or a package the entry object does not name.
+Tasks `t012`–`t029` (except the local control `t020`) hide the dependency from the entry code:
+the bug is in a DML trigger, a trigger chain, an INSTEAD OF trigger, a view, a synonym, an object
+type, package constants, or a package the entry object does not name.
 
 All task code is self-written for this benchmark. utPLSQL source (Apache-2.0) is used only as optional
 search distractors and is downloaded by the setup script, not stored here.

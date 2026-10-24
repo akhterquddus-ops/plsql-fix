@@ -1,0 +1,86 @@
+{
+  "task": "t015_vat_synonym",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "VAT_RATES_2026",
+      "task": "t015_vat_synonym",
+      "score": 1.0
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.6663
+    },
+    {
+      "name": "T008_INVOICE_PKG",
+      "task": "t008_overpayment",
+      "score": 0.6176
+    },
+    {
+      "name": "T006_INCOME_TAX",
+      "task": "t006_income_tax",
+      "score": 0.5478
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "INVOICE_TAX",
+    "VAT_RATES",
+    "VAT_RATES_2025",
+    "VAT_RATES_2026",
+    "T008_PAYMENTS_API",
+    "T008_INVOICE_PKG",
+    "T006_INCOME_TAX"
+  ],
+  "buggy_objects": [
+    "VAT_RATES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "VAT_RATES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2000,
+  "wall_seconds": 3.93,
+  "timestamp": "2026-10-24T02:20:23",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2000,
+      "output_tokens": 55,
+      "seconds": 3.44,
+      "edited_objects": [
+        "VAT_RATES"
+      ],
+      "cause": "vat_rates synonym points to vat_rates_2025 instead of vat_rates_2026",
+      "candidate": "CREATE OR REPLACE SYNONYM vat_rates FOR vat_rates_2026;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

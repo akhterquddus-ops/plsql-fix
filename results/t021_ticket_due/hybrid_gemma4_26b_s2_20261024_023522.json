@@ -1,0 +1,84 @@
+{
+  "task": "t021_ticket_due",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "SLA_POLICY",
+      "task": "t021_ticket_due",
+      "score": 1.0
+    },
+    {
+      "name": "T004_UTIL",
+      "task": "t004_late_fee",
+      "score": 0.8154
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.7907
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.5538
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "TICKET_API",
+    "SLA_POLICY",
+    "T004_UTIL",
+    "T004_LOANS_API",
+    "T005_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "SLA_POLICY"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "SLA_POLICY"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1624,
+  "wall_seconds": 5.77,
+  "timestamp": "2026-10-24T02:35:22",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1624,
+      "output_tokens": 179,
+      "seconds": 5.28,
+      "edited_objects": [
+        "SLA_POLICY"
+      ],
+      "cause": "sla_policy.hours_for has swapped the hour values for P2 and P3 priorities.",
+      "candidate": "create or replace package sla_policy as\n  -- Response time in hours by priority: P1 = 4, P2 = 8, P3 = 24.\n  function hours_for(p_priority in varchar2) return number;\nend sla_policy;\n/\ncreate or replace package body sla_policy as\n  function hours_for(p_priority in varchar2) return number is\n  begin\n    return case p_priority\n             when 'P1' then 4\n             when 'P2' then 8\n             when 'P3' then 24\n           end;\n  end hours_for;\nend sla_policy;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

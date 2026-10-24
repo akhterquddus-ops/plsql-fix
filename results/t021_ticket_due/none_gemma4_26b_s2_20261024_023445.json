@@ -1,0 +1,82 @@
+{
+  "task": "t021_ticket_due",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "TICKET_API"
+  ],
+  "buggy_objects": [
+    "SLA_POLICY"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 730,
+  "wall_seconds": 100.91,
+  "timestamp": "2026-10-24T02:34:45",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 730,
+      "output_tokens": 3255,
+      "seconds": 59.16,
+      "edited_objects": [
+        "SLA_POLICY",
+        "TICKET_API"
+      ],
+      "cause": "ticket_api.due_at uses sla_policy.hours_for which returns incorrect values for normal and low priority tickets based on the test expectations",
+      "candidate": "create or replace package sla_policy as\n  function hours_for(p_priority in varchar2) return number;\nend sla_policy;\n/\ncreate or replace package body sla_policy as\n  function hours_for(p_priority in varchar2) return number is\n  begin\n    if p_priority = 'P1' then\n      return 4;\n    elsif p_priority = 'P2' then\n      return 8;\n    elsif p_priority = 'P3' then\n      return 24;\n    else\n      return 0;\n    end if;\n  end hours_for;\nend sla_policy;\n/\ncreate or replace package ticket_api as\n  -- Time by which a ticket must be answered.\n  function due_at(p_opened in date, p_priority in varchar2) return date;\nend ticket_api;\n/\ncreate or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n  begin\n    return p_opened + sla_policy.hours_for(p_priority) / 24;\n  end due_at;\nend ticket_api;\n/\ncreate or replace package ticket_api as\n  -- Time by which a ticket must be answered.\n  function due_at(p_opened in date, p_priority in varchar2) return date;\nend ticket_api;\n/\ncreate or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n    l_priority varchar2(10) := p_priority;\n  begin\n    if p_priority = 'P2' then\n      l_priority := 'P3';\n    elsif p_priority = 'P3' then\n      l_priority := 'P2';\n    end if;\n    return p_opened + sla_policy.hours_for(l_priority) / 24;\n  end due_at;\nend ticket_api;\n/\ncreate or replace package ticket_api as\n  -- Time by which a ticket must be answered.\n  function due_at(p_opened in date, p_priority in varchar2) return date;\nend ticket_api;\n/\ncreate or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n    l_priority varchar2(10) := p_priority;\n  begin\n    if p_priority = 'P2' then\n      l_priority := 'P3';\n    elsif p_priority = 'P3' then\n      l_priority := 'P2';\n    end if;\n    return p_opened + sla_policy.hours_for(l_priority) / 24;\n  end due_at;\nend ticket_api;\n/\ncreate or replace package ticket_api as\n  -- Time by which a ticket must be answered.\n  function due_at(p_opened in date, p_priority in varchar2) return date;\nend ticket_api;\n/\ncreate or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n    l_priority varchar2(10) := p_priority;\n  begin\n    if p_priority = 'P2' then\n      l_priority := 'P3';\n    elsif p_priority = 'P3' then\n      l_priority := 'P2';\n    end if;\n    return p_opened + sla_policy.hours_for(l_priority) / 24;\n  end due_at;\nend ticket_api;\n/\ncreate or replace package ticket_api as\n  -- Time by which a ticket must be answered.\n  function due_at(p_opened in date, p_priority in varchar2) return date;\nend ticket_api;\n/\ncreate or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n    l_priority varchar2(10) := p_priority;\n  begin\n    if p_priority = 'P2' then\n      l_priority := 'P3';\n    elsif p_priority = 'P3' then\n      l_priority := 'P2';\n    end if;\n    return p_opened + sla_policy.hours_for(l_priority) / 24;\n  end due_at;\nend ticket_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 4342,
+      "output_tokens": 224,
+      "seconds": 7.92,
+      "edited_objects": [
+        "TICKET_API"
+      ],
+      "cause": "ticket_api.due_at incorrectly maps priority levels to SLA durations due to swapped values in sla_policy",
+      "candidate": "create or replace package ticket_api as\n  -- Time by which a ticket must be answered.\n  function due_at(p_opened in date, p_priority in varchar2) return date;\nend ticket_api;\n/\ncreate or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n    l_priority varchar2(10) := p_priority;\n  begin\n    if p_priority = 'P2' then\n      l_priority := 'P3';\n    elsif p_priority = 'P3' then\n      l_priority := 'P2';\n    end if;\n    return p_opened + sla_policy.hours_for(l_priority) / 24;\n  end due_at;\nend ticket_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 4619,
+      "output_tokens": 1740,
+      "seconds": 32.28,
+      "edited_objects": [
+        "TICKET_API"
+      ],
+      "cause": "ticket_api.due_at incorrectly calculates due time because sla_policy.hours_for returns values that are swapped for P2 and P3 priorities",
+      "candidate": "create or replace package ticket_api as\n  -- Time by which a ticket must be answered.\n  function due_at(p_opened in date, p_priority in varchar2) return date;\nend ticket_api;\n/\ncreate or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n    l_priority varchar2(10) := p_priority;\n  begin\n    if p_priority = 'P2' then\n      l_priority := 'P3';\n    elsif p_priority = 'P3' then\n      l_priority := 'P2';\n    end if;\n    return p_opened + sla_policy.hours_for(l_priority) / 24;\n  end due_at;\nend ticket_api;\n/\nfunction due_at(p_opened in date, p_priority in varchar2) return date is\n  begin\n    return p_opened + sla_policy.hours_for(p_priority) / 24;\n  end due_at;\n/\nfunction due_at(p_opened in date, p_priority in varchar2) return date is\n    l_priority varchar2(10) := p_priority;\n  begin\n    if p_priority = 'P2' then\n      l_priority := 'P3';\n    elsif p_priority = 'P3' then\n      l_priority := 'P2';\n    end if;\n    return p_opened + sla_policy.hours_for(l_priority) / 24;\n  end due_at;\n/\ncreate or replace package ticket_api as\n  -- Time by which a ticket must be answered.\n  function due_at(p_opened in date, p_priority in varchar2) return date;\nend ticket_api;\n/\ncreate or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n    l_priority varchar2(10) := p_priority;\n  begin\n    if p_priority = 'P2' then\n      l_priority := 'P3';\n    elsif p_priority = 'P3' then\n      l_priority := 'P2';\n    end if;\n    return p_opened + sla_policy.hours_for(l_priority) / 24;\n  end due_at;\nend ticket_api;\n/\ncreate or replace package ticket_api as\n  -- Time by which a ticket must be answered.\n  function due_at(p_opened in date, p_priority in varchar2) return date;\nend ticket_api;\n/\ncreate or replace package body ticket_api as\n  function due_at(p_opened in date, p_priority in varchar2) return date is\n    l_priority varchar2(10) := p_priority;\n  begin\n    if p_priority = 'P2' then\n      l_priority := 'P3';\n    elsif p_priority = 'P3' then\n      l_priority := 'P2';\n    end if;\n    return p_opened + sla_policy.hours_for(l_priority) / 24;\n  end due_at;\nend ticket_api;\n/",
+      "outcome": "invalid_statement"
+    }
+  ]
+}

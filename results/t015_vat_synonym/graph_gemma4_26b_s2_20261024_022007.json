@@ -1,0 +1,63 @@
+{
+  "task": "t015_vat_synonym",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "INVOICE_TAX",
+    "VAT_RATES",
+    "VAT_RATES_2025"
+  ],
+  "buggy_objects": [
+    "VAT_RATES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "VAT_RATES",
+    "VAT_RATES_2026"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 978,
+  "wall_seconds": 5.53,
+  "timestamp": "2026-10-24T02:20:07",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 978,
+      "output_tokens": 210,
+      "seconds": 4.96,
+      "edited_objects": [
+        "VAT_RATES",
+        "VAT_RATES_2026"
+      ],
+      "cause": "vat_rates synonym points to vat_rates_2025 instead of the current year's rates required by tests.",
+      "candidate": "create or replace synonym vat_rates for vat_rates_2026\n/\ncreate or replace package vat_rates_2026 as\n  -- VAT rates in percent, valid until 31 December 2026.\n  function rate_for(p_region in varchar2) return number;\nend vat_rates_2026;\n/\ncreate or replace package body vat_rates_2026 as\n  function rate_for(p_region in varchar2) return number is\n  begin\n    return case p_region\n             when 'NORTH' then 18\n             when 'SOUTH' then 15\n             else 17\n           end;\n  end rate_for;\nend vat_rates_2026;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

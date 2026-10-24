@@ -1,0 +1,88 @@
+{
+  "task": "t018_loyalty_points",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T003_ACCOUNTS_API",
+      "task": "t003_transfer_fee",
+      "score": 0.9483
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.9027
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.8824
+    },
+    {
+      "name": "T010_LOANS_API",
+      "task": "t010_loan_payment",
+      "score": 0.8689
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "LOYALTY_API",
+    "LOYALTY_MEMBERS",
+    "LOYALTY_PURCHASES",
+    "LOYALTY_PURCHASES_AI",
+    "POINTS_RULES",
+    "T003_ACCOUNTS_API",
+    "T009_CHECKOUT_API",
+    "T001_ORDERS_API",
+    "T010_LOANS_API"
+  ],
+  "buggy_objects": [
+    "POINTS_RULES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "POINTS_RULES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2226,
+  "wall_seconds": 4.62,
+  "timestamp": "2026-10-24T02:59:50",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2226,
+      "output_tokens": 94,
+      "seconds": 4.14,
+      "edited_objects": [
+        "POINTS_RULES"
+      ],
+      "cause": "points_rules.points_for used a divisor of 10 instead of 100",
+      "candidate": "create or replace package body points_rules as\n  function points_for(p_amount in number) return number is\n  begin\n    return floor(nvl(p_amount, 0) / 100);\n  end points_for;\nend points_rules;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

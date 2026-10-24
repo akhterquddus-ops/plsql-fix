@@ -1,0 +1,94 @@
+{
+  "task": "t017_overdraft_limit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ATM_API",
+    "BANK_ACCOUNTS",
+    "BANK_ACCOUNTS_BU"
+  ],
+  "buggy_objects": [
+    "BANK_ACCOUNTS_BU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1022,
+  "wall_seconds": 19.14,
+  "timestamp": "2026-10-24T02:58:18",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1022,
+      "output_tokens": 251,
+      "seconds": 5.73,
+      "edited_objects": [
+        "ATM_API"
+      ],
+      "cause": "atm_api.withdraw does not handle the exception raised by the bank_accounts_bu trigger, allowing the transaction to proceed or fail silently without returning 'DECLINED'.",
+      "candidate": "create or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n    return 'OK';\n  exception\n    when e_limit then\n      return 'DECLINED';\n    when others then\n      raise;\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1568,
+      "output_tokens": 250,
+      "seconds": 4.9,
+      "edited_objects": [
+        "ATM_API"
+      ],
+      "cause": "atm_api.withdraw does not rollback the update when the overdraft limit exception is raised, causing the balance to change despite returning 'DECLINED'.",
+      "candidate": "create or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n    return 'OK';\n  exception\n    when e_limit then\n      rollback;\n      return 'DECLINED';\n    when others then\n      raise;\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2113,
+      "output_tokens": 368,
+      "seconds": 7.07,
+      "edited_objects": [
+        "BANK_ACCOUNTS_BU",
+        "ATM_API"
+      ],
+      "cause": "atm_api.withdraw does not handle the exception correctly because the trigger logic compares :old.balance with -:new.overdraft_limit instead of :new.balance with -:new.overdraft_limit, and the withdraw function needs to rollback the failed update.",
+      "candidate": "create or replace trigger bank_accounts_bu\nbefore update of balance on bank_accounts\nfor each row\nbegin\n  -- The balance may not go below minus the overdraft limit.\n  if :new.balance < -:new.overdraft_limit then\n    raise_application_error(-20070, 'Overdraft limit exceeded');\n  end if;\nend bank_accounts_bu;\n/\ncreate or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n    return 'OK';\n  exception\n    when e_limit then\n      rollback;\n      return 'DECLINED';\n    when others then\n      raise;\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 1
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

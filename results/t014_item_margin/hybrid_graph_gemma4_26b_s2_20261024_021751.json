@@ -1,0 +1,87 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.9167
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.8726
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.8478
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.836
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "AVERAGE_UNIT_COST",
+    "CATALOGUE_ITEMS",
+    "T001_PRICING",
+    "T009_CHECKOUT_API",
+    "T001_ORDERS_API",
+    "T009_PARCEL_PKG"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1888,
+  "wall_seconds": 6.33,
+  "timestamp": "2026-10-24T02:17:51",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1888,
+      "output_tokens": 136,
+      "seconds": 5.78,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST"
+      ],
+      "cause": "average_unit_cost used count(*) instead of sum(qty) to calculate the weighted average cost.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select sum(total_cost) / nullif(sum(qty), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

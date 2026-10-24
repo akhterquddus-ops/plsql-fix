@@ -1,0 +1,86 @@
+{
+  "task": "t019_net_pay",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 1.0
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.8628
+    },
+    {
+      "name": "ATM_API",
+      "task": "t017_overdraft_limit",
+      "score": 0.8455
+    },
+    {
+      "name": "T003_ACCOUNTS_API",
+      "task": "t003_transfer_fee",
+      "score": 0.8206
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "PAYROLL_API",
+    "DEDUCTIONS",
+    "PENSION_RULES",
+    "T008_PAYMENTS_API",
+    "T009_CHECKOUT_API",
+    "ATM_API",
+    "T003_ACCOUNTS_API"
+  ],
+  "buggy_objects": [
+    "PENSION_RULES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "PENSION_RULES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2161,
+  "wall_seconds": 6.05,
+  "timestamp": "2026-10-24T03:01:22",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2161,
+      "output_tokens": 183,
+      "seconds": 5.51,
+      "edited_objects": [
+        "PENSION_RULES"
+      ],
+      "cause": "pension_rules.contribution used greatest instead of least, causing the pension contribution to be at least the cap instead of at most the cap.",
+      "candidate": "create or replace package pension_rules as\n  -- Monthly employee pension contribution: 5% of gross pay, at most 4,000.\n  function contribution(p_gross in number) return number;\nend pension_rules;\n/\ncreate or replace package body pension_rules as\n  c_rate constant number := 0.05;\n  c_cap  constant number := 4000;\n\n  function contribution(p_gross in number) return number is\n  begin\n    return round(least(p_gross * c_rate, c_cap), 2);\n  end contribution;\nend pension_rules;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

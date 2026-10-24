@@ -1,0 +1,91 @@
+{
+  "task": "t018_loyalty_points",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "LOYALTY_API"
+  ],
+  "buggy_objects": [
+    "POINTS_RULES"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 828,
+  "wall_seconds": 17.52,
+  "timestamp": "2026-10-24T02:58:56",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 828,
+      "output_tokens": 260,
+      "seconds": 5.62,
+      "edited_objects": [
+        "LOYALTY_API"
+      ],
+      "cause": "loyalty_api.add_purchase failed to update the loyalty_members table with the calculated points (amount / 100).",
+      "candidate": "create or replace package loyalty_api as\n  -- Records a purchase for a member and returns the member's new points balance.\n  function add_purchase(p_member_id in number, p_amount in number) return number;\nend loyalty_api;\n/\ncreate or replace package body loyalty_api as\n  function add_purchase(p_member_id in number, p_amount in number) return number is\n    l_points loyalty_members.points%type;\n  begin\n    insert into loyalty_purchases (member_id, amount) values (p_member_id, p_amount);\n    \n    update loyalty_members \n    set points = points + floor(p_amount / 100)\n    where member_id = p_member_id;\n    \n    select points into l_points from loyalty_members where member_id = p_member_id;\n    return l_points;\n  end add_purchase;\nend loyalty_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 3,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1494,
+      "output_tokens": 261,
+      "seconds": 5.13,
+      "edited_objects": [
+        "LOYALTY_API"
+      ],
+      "cause": "loyalty_api.add_purchase was adding points to existing balance instead of setting the balance based on the purchase amount as implied by the test expectations.",
+      "candidate": "create or replace package loyalty_api as\n  -- Records a purchase for a member and returns the member's new points balance.\n  function add_purchase(p_member_id in number, p_amount in number) return number;\nend loyalty_api;\n/\ncreate or replace package body loyalty_api as\n  function add_purchase(p_member_id in number, p_amount in number) return number is\n    l_points loyalty_members.points%type;\n  begin\n    insert into loyalty_purchases (member_id, amount) values (p_member_id, p_amount);\n    \n    update loyalty_members \n    set points = floor(p_amount / 100)\n    where member_id = p_member_id;\n    \n    select points into l_points from loyalty_members where member_id = p_member_id;\n    return l_points;\n  end add_purchase;\nend loyalty_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 1,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1972,
+      "output_tokens": 269,
+      "seconds": 5.31,
+      "edited_objects": [
+        "LOYALTY_API"
+      ],
+      "cause": "loyalty_api.add_purchase was overwriting the points balance instead of adding to it, and the test expectations imply that the member's starting points are 10.",
+      "candidate": "create or replace package loyalty_api as\n  -- Records a purchase for a member and returns the member's new points balance.\n  function add_purchase(p_member_id in number, p_amount in number) return number;\nend loyalty_api;\n/\ncreate or replace package body loyalty_api as\n  function add_purchase(p_member_id in number, p_amount in number) return number is\n    l_points loyalty_members.points%type;\n  begin\n    insert into loyalty_purchases (member_id, amount) values (p_member_id, p_amount);\n    \n    update loyalty_members \n    set points = points + floor(p_amount / 100)\n    where member_id = p_member_id;\n    \n    select points into l_points from loyalty_members where member_id = p_member_id;\n    return l_points;\n  end add_purchase;\nend loyalty_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 3,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

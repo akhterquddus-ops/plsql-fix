@@ -1,0 +1,116 @@
+{
+  "task": "t017_overdraft_limit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "BANK_ACCOUNTS_BU",
+      "task": "t017_overdraft_limit",
+      "score": 0.7133
+    },
+    {
+      "name": "T003_ACCOUNTS_API",
+      "task": "t003_transfer_fee",
+      "score": 0.6337
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.6329
+    },
+    {
+      "name": "BANK_ACCOUNTS",
+      "task": "t017_overdraft_limit",
+      "score": 0.6254
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ATM_API",
+    "BANK_ACCOUNTS_BU",
+    "T003_ACCOUNTS_API",
+    "T008_PAYMENTS_API",
+    "BANK_ACCOUNTS"
+  ],
+  "buggy_objects": [
+    "BANK_ACCOUNTS_BU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1609,
+  "wall_seconds": 19.6,
+  "timestamp": "2026-10-24T02:26:09",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1609,
+      "output_tokens": 236,
+      "seconds": 7.03,
+      "edited_objects": [
+        "ATM_API"
+      ],
+      "cause": "atm_api.withdraw failed to roll back the update when the overdraft limit exception was raised, leaving the balance incorrect.",
+      "candidate": "create or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n    return 'OK';\n  exception\n    when e_limit then\n      rollback;\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2140,
+      "output_tokens": 273,
+      "seconds": 5.82,
+      "edited_objects": [
+        "ATM_API"
+      ],
+      "cause": "atm_api.withdraw failed to roll back the update when the overdraft limit exception was raised, leaving the balance incorrect.",
+      "candidate": "create or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n    l_savepoint varchar2(31) := 'ATM_WITHDRAW_SP';\n  begin\n    savepoint atm_withdraw_sp;\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n    return 'OK';\n  exception\n    when e_limit then\n      rollback to atm_withdraw_sp;\n      return 'DECLINED';\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2708,
+      "output_tokens": 261,
+      "seconds": 5.25,
+      "edited_objects": [
+        "ATM_API"
+      ],
+      "cause": "atm_api.withdraw failed to roll back the update when the overdraft limit exception was raised, leaving the balance incorrect.",
+      "candidate": "create or replace package body atm_api as\n  function withdraw(p_account_no in varchar2, p_amount in number) return varchar2 is\n    e_limit exception;\n    pragma exception_init(e_limit, -20070);\n  begin\n    savepoint atm_withdraw_sp;\n    update bank_accounts\n       set balance = balance - p_amount\n     where account_no = p_account_no;\n    return 'OK';\n  exception\n    when e_limit then\n      rollback to atm_withdraw_sp;\n      return 'DECLINED';\n    when others then\n      raise;\n  end withdraw;\n\n  function balance_of(p_account_no in varchar2) return number is\n    l_balance bank_accounts.balance%type;\n  begin\n    select balance into l_balance from bank_accounts where account_no = p_account_no;\n    return l_balance;\n  end balance_of;\nend atm_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

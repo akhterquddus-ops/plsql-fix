@@ -1,0 +1,85 @@
+{
+  "task": "t021_ticket_due",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T004_UTIL",
+      "task": "t004_late_fee",
+      "score": 0.9904
+    },
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.9649
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.6533
+    },
+    {
+      "name": "ENROLMENT_API",
+      "task": "t012_scholarship_fee",
+      "score": 0.6513
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "TICKET_API",
+    "SLA_POLICY",
+    "T004_UTIL",
+    "T004_LOANS_API",
+    "T005_ORDERS_API",
+    "ENROLMENT_API"
+  ],
+  "buggy_objects": [
+    "SLA_POLICY"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "SLA_POLICY"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1897,
+  "wall_seconds": 4.78,
+  "timestamp": "2026-10-24T03:03:54",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1897,
+      "output_tokens": 114,
+      "seconds": 4.29,
+      "edited_objects": [
+        "SLA_POLICY"
+      ],
+      "cause": "sla_policy.hours_for swapped the return values for P2 and P3 priorities",
+      "candidate": "create or replace package body sla_policy as\n  function hours_for(p_priority in varchar2) return number is\n  begin\n    return case p_priority\n             when 'P1' then 4\n             when 'P2' then 8\n             when 'P3' then 24\n           end;\n  end hours_for;\nend sla_policy;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

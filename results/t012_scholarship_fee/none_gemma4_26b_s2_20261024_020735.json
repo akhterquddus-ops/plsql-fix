@@ -1,0 +1,59 @@
+{
+  "task": "t012_scholarship_fee",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ENROLMENT_API"
+  ],
+  "buggy_objects": [
+    "COURSE_ENROLMENTS_BI"
+  ],
+  "buggy_object_in_context": false,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "ENROLMENT_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 808,
+  "wall_seconds": 52.18,
+  "timestamp": "2026-10-24T02:07:35",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 808,
+      "output_tokens": 2849,
+      "seconds": 51.65,
+      "edited_objects": [
+        "ENROLMENT_API"
+      ],
+      "cause": "enrolment_api.enrol does not correctly calculate the fee due when a scholarship is applied, as it relies on a trigger or default value in course_enrolments that is clearly not applying the scholarship percentage to the course fee.",
+      "candidate": "create or replace package enrolment_api as\n  -- Enrols a student on a course and returns the fee they have to pay.\n  function enrol(p_student_id      in number,\n                 p_course_code     in varchar2,\n                 p_scholarship_pct in number default 0) return number;\nend enrolment_api;\n/\ncreate or replace package body enrolment_api as\n  function enrol(p_student_id      in number,\n                 p_course_code     in varchar2,\n                 p_scholarship_pct in number default 0) return number is\n    l_fee_due course_enrolments.fee_due%type;\n    l_course_fee number;\n    l_scholarship_pct number := nvl(p_scholarship_pct, 0);\n  begin\n    -- We need to fetch the base course fee to calculate the discounted fee if the table logic is failing.\n    -- However, looking at the test failure, the insert is happening but the fee_due returned is wrong.\n    -- Since I cannot change the table schema or triggers, I must ensure the logic results in the correct fee.\n    -- The test shows: 25% scholarship on 1000 (implied) should be 750, but got 975.\n    -- 10% scholarship on 1500 (implied) should be 1350, but got 1490.\n    -- This suggests the current logic (likely a trigger) is subtracting the scholarship amount incorrectly or not at all.\n    -- Since I only have the API, and the API returns the value from the table, I must fix the API to ensure the correct value is stored or calculated.\n    -- Wait, the API returns the value 'returning fee_due into l_fee_due'. \n    -- If the trigger is broken, I can't fix it via the API unless I calculate it manually.\n    -- But I don't have the course fee table. \n    -- Let's look at the math: 1000 - 25% = 750. 1500 - 10% = 1350.\n    -- The actual values 975 and 1490 suggest: 1000 - 25 = 975 and 1500 - 10 = 1490.\n    -- The trigger is subtracting the percentage value itself, not the percentage of the fee.\n    -- Since I cannot change the trigger, I must calculate the fee manually if possible, \n    -- but I don't have the course fee. \n    -- Actually, I can't change the trigger, but I can change the API to calculate the correct fee \n    -- if I can find the base fee. But I don't have access to the courses table.\n    -- Wait, if I can't change the trigger, and the trigger is what populates fee_due, \n    -- I must find a way to make fee_due correct.\n    -- If the trigger is: fee_due := course_fee - scholarship_pct;\n    -- I need: fee_due := course_fee * (1 - scholarship_pct/100);\n    -- This is impossible without the course_fee.\n    -- UNLESS the scholarship_pct is meant to be passed as a multiplier or the trigger is \n    -- simply not being triggered correctly? No, the values 975 and 1490 are too specific.\n    -- They are exactly (BaseFee - scholarship_pct).\n    -- To fix this in the API, I can't. I must assume the bug is that the API should \n    -- calculate the fee and update it, or the trigger is wrong.\n    -- But I am only allowed to change the code provided.\n    -- If I change the API to calculate the fee, I need the base fee.\n    -- Let's assume there is a courses table with a fee column.\n    -- But I don't see it. \n    -- Let's look at the requirements again. \"Students with a scholarship are asked to pay almost the full course fee.\"\n    -- This confirms the trigger is doing `fee = fee - scholarship_pct` instead of `fee = fee * (1 - scholarship_pct/100)`.\n    -- If I can't change the trigger, I can't fix the table.\n    -- BUT, I can perform an UPDATE after the INSERT to correct the fee_due.\n    -- To do that, I need the original fee.\n    -- Wait! If I can't see the courses table, how can I know the fee?\n    -- Let's try to see if I can calculate the fee from the incorrect fee_due.\n    -- Incorrect fee = BaseFee - scholarship_pct => BaseFee = Incorrect fee + scholarship_pct.\n    -- Correct fee = BaseFee * (1 - scholarship_pct/100).\n    -- Let's test: \n    -- 1) 975 + 25 = 1000. 1000 * (1 - 25/100) = 750. Correct!\n    -- 2) 1490 + 10 = 1500. 1500 * (1 - 10/100) = 1350. Correct!\n    \n    insert into course_enrolments (student_id, course_code, scholarship_pct)\n    values (p_student_id, p_course_code, l_scholarship_pct)\n    returning fee_due into l_fee_due;\n\n    if l_scholarship_pct > 0 then\n       update course_enrolments \n       set fee_due = (l_fee_due + l_scholarship_pct) * (1 - l_scholarship_pct / 100)\n       where student_id = p_student_id \n         and course_code = p_course_code\n         and scholarship_pct = l_scholarship_pct;\n       \n       -- Re-fetch the corrected fee\n       select fee_due into l_fee_due \n       from course_enrolments \n       where student_id = p_student_id \n         and course_code = p_course_code\n         and scholarship_pct = l_scholarship_pct;\n    end if;\n\n    return l_fee_due;\n  end enrol;\nend enrolment_api;\n/\ncreate or replace package enrolment_api as\n  -- Enrols a student on a course and returns the fee they have to pay.\n  function enrol(p_student_id      in number,\n                 p_course_code     in varchar2,\n                 p_scholarship_pct in number default 0) return number;\nend enrolment_api;\n/\ncreate or replace package body enrolment_api as\n  function enrol(p_student_id      in number,\n                 p_course_code     in varchar2,\n                 p_scholarship_pct in number default 0) return number is\n    l_fee_due course_enrolments.fee_due%type;\n    l_scholarship_pct number := nvl(p_scholarship_pct, 0);\n  begin\n    insert into course_enrolments (student_id, course_code, scholarship_pct)\n    values (p_student_id, p_course_code, l_scholarship_pct)\n    returning fee_due into l_fee_due;\n\n    if l_scholarship_pct > 0 then\n      -- The trigger incorrectly calculates fee_due = base_fee - scholarship_pct.\n      -- We correct it to: fee_due = (fee_due + scholarship_pct) * (1 - scholarship_pct/100).\n      update course_enrolments\n      set fee_due = (fee_due + l_scholarship_pct) * (1 - l_scholarship_pct / 100)\n      where student_id = p_student_id\n        and course_code = p_course_code\n        and scholarship_pct = l_scholarship_pct;\n\n      select fee_due into l_fee_due\n      from course_enrolments\n      where student_id = p_student_id\n        and course_code = p_course_code\n        and scholarship_pct = l_scholarship_pct;\n    end if;\n\n    return l_fee_due;\n  end enrol;\nend enrolment_api;\n/\ncreate or replace package enrolment_api as\n  -- Enrols a student on a course and returns the fee they have to pay.\n  function enrol(p_student_id      in number,\n                 p_course_code     in varchar2,\n                 p_scholarship_pct in number default 0) return number;\nend enrolment_api;\n/\ncreate or replace package body enrolment_api as\n  function enrol(p_student_id      in number,\n                 p_course_code     in varchar2,\n                 p_scholarship_pct in number default 0) return number is\n    l_fee_due course_enrolments.fee_due%type;\n    l_scholarship_pct number := nvl(p_scholarship_pct, 0);\n  begin\n    insert into course_enrolments (student_id, course_code, scholarship_pct)\n    values (p_student_id, p_course_code, l_scholarship_pct)\n    returning fee_due into l_fee_due;\n\n    if l_scholarship_pct > 0 then\n      update course_enrolments\n      set fee_due = (fee_due + l_scholarship_pct) * (1 - l_scholarship_pct / 100)\n      where student_id = p_student_id\n        and course_code = p_course_code\n        and scholarship_pct = l_scholarship_pct;\n\n      select fee_due into l_fee_due\n      from course_enrolments\n      where student_id = p_student_id\n        and course_code = p_course_code\n        and scholarship_pct = l_scholarship_pct;\n    end if;\n\n    return l_fee_due;\n  end enrol;\nend enrolment_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

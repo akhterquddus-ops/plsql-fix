@@ -1,0 +1,91 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "AVERAGE_UNIT_COST",
+    "CATALOGUE_ITEMS"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 978,
+  "wall_seconds": 135.98,
+  "timestamp": "2026-10-24T02:17:33",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 978,
+      "output_tokens": 136,
+      "seconds": 3.66,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST"
+      ],
+      "cause": "average_unit_cost calculates the arithmetic mean of receipt totals instead of the weighted average cost per unit.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select sum(total_cost) / nullif(sum(quantity), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/",
+      "compile_errors": [
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 39: PL/SQL: ORA-00904: \"QUANTITY\": invalid identifier",
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 3: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1197,
+      "output_tokens": 3765,
+      "seconds": 73.74,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST"
+      ],
+      "cause": "average_unit_cost calculates the arithmetic mean of receipt totals instead of the weighted average cost per unit.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select sum(total_cost) / nullif(sum(total_cost / unit_cost), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/\ncreate or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select sum(total_cost) / nullif(sum(total_cost / unit_cost), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/\ncreate or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select sum(total_cost) / nullif(sum(total_cost / unit_cost), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/",
+      "compile_errors": [
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 52: PL/SQL: ORA-00904: \"UNIT_COST\": invalid identifier",
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 3: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 5046,
+      "output_tokens": 3146,
+      "seconds": 56.44,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST"
+      ],
+      "cause": "average_unit_cost calculates the arithmetic mean of receipt totals instead of the weighted average cost per unit.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select sum(total_cost) / nullif(sum(quantity), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/",
+      "compile_errors": [
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 39: PL/SQL: ORA-00904: \"QUANTITY\": invalid identifier",
+        "FUNCTION AVERAGE_UNIT_COST line 5, col 3: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 669,
+  "wall_seconds": 23.92,
+  "timestamp": "2026-10-24T02:11:58",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 669,
+      "output_tokens": 676,
+      "seconds": 13.67,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "margin_report.margin_pct has a syntax error in the SELECT statement (missing FROM clause or incorrect syntax) and the bug report implies the underlying view item_margins_v is likely aggregating incorrectly or the function call is wrong. However, looking at the provided code, the SELECT statement is 'select margin_pct into l_margin from item_margins_v where sku = p_sku;'. This is actually valid if margin_pct is a column in the view, but the error 'Actual: -1050' suggests the view is summing costs incorrectly or the logic in the view is flawed. Since I cannot change the view, I must check if the function itself is the issue. Wait, the provided code 'select margin_pct into l_margin from item_margins_v where sku = p_sku;' is actually missing the column name or has a typo. Actually, the code provided is 'select margin_pct into l_margin from item_margins_v where sku = p_sku;'. If margin_pct is a column in the view, it should work. But the bug report says \"huge negative margins for items that were bought in several deliveries\". This usually means the cost is being summed multiple times in the view. However, I am only allowed to change the code provided. Looking closely at the provided code: 'select margin_pct into l_margin from item_margins_v where sku = p_sku;'. There is no syntax error here if margin_pct is a column. But wait, the function name is also margin_pct. This is a name collision. The compiler might be getting confused between the function margin_report.margin_pct and the column margin_pct in the view.",
+      "candidate": "create or replace package margin_report as\n  -- Gross margin of an item, in percent of its list price.\n  function margin_pct(p_sku in varchar2) return number;\nend margin_report;\n/\ncreate or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select m.margin_pct into l_margin from item_margins_v m where m.sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1633,
+      "output_tokens": 179,
+      "seconds": 4.76,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "margin_report.margin_pct suffers from name shadowing where the column name margin_pct in the view is being interpreted as a recursive call to the function itself.",
+      "candidate": "create or replace package margin_report as\n  -- Gross margin of an item, in percent of its list price.\n  function margin_pct(p_sku in varchar2) return number;\nend margin_report;\n/\ncreate or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select v.margin_pct into l_margin from item_margins_v v where v.sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2099,
+      "output_tokens": 180,
+      "seconds": 3.98,
+      "edited_objects": [
+        "MARGIN_REPORT"
+      ],
+      "cause": "margin_report.margin_pct suffers from name shadowing where the column name margin_pct in the view is being interpreted as a recursive call to the function itself.",
+      "candidate": "create or replace package margin_report as\n  -- Gross margin of an item, in percent of its list price.\n  function margin_pct(p_sku in varchar2) return number;\nend margin_report;\n/\ncreate or replace package body margin_report as\n  function margin_pct(p_sku in varchar2) return number is\n    l_margin number;\n  begin\n    select item_margins_v.margin_pct into l_margin from item_margins_v where sku = p_sku;\n    return l_margin;\n  end margin_pct;\nend margin_report;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "task": "t021_ticket_due",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "TICKET_API",
+    "SLA_POLICY"
+  ],
+  "buggy_objects": [
+    "SLA_POLICY"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "SLA_POLICY"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 909,
+  "wall_seconds": 4.7,
+  "timestamp": "2026-10-24T03:03:38",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 909,
+      "output_tokens": 179,
+      "seconds": 4.21,
+      "edited_objects": [
+        "SLA_POLICY"
+      ],
+      "cause": "sla_policy.hours_for has incorrect hour values assigned to P2 and P3 priorities.",
+      "candidate": "create or replace package sla_policy as\n  -- Response time in hours by priority: P1 = 4, P2 = 8, P3 = 24.\n  function hours_for(p_priority in varchar2) return number;\nend sla_policy;\n/\ncreate or replace package body sla_policy as\n  function hours_for(p_priority in varchar2) return number is\n  begin\n    return case p_priority\n             when 'P1' then 4\n             when 'P2' then 8\n             when 'P3' then 24\n           end;\n  end hours_for;\nend sla_policy;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

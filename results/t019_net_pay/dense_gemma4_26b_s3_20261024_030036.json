@@ -1,0 +1,84 @@
+{
+  "task": "t019_net_pay",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "DEDUCTIONS",
+      "task": "t019_net_pay",
+      "score": 0.6394
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.6369
+    },
+    {
+      "name": "ATM_API",
+      "task": "t017_overdraft_limit",
+      "score": 0.6335
+    },
+    {
+      "name": "PENSION_RULES",
+      "task": "t019_net_pay",
+      "score": 0.6217
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "PAYROLL_API",
+    "DEDUCTIONS",
+    "T008_PAYMENTS_API",
+    "ATM_API",
+    "PENSION_RULES"
+  ],
+  "buggy_objects": [
+    "PENSION_RULES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "PENSION_RULES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1599,
+  "wall_seconds": 6.72,
+  "timestamp": "2026-10-24T03:00:36",
+  "baseline": {
+    "tests": 3,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1599,
+      "output_tokens": 179,
+      "seconds": 5.52,
+      "edited_objects": [
+        "PENSION_RULES"
+      ],
+      "cause": "pension_rules.contribution used greatest instead of least, causing the cap to act as a floor instead of a ceiling.",
+      "candidate": "create or replace package pension_rules as\n  -- Monthly employee pension contribution: 5% of gross pay, at most 4,000.\n  function contribution(p_gross in number) return number;\nend pension_rules;\n/\ncreate or replace package body pension_rules as\n  c_rate constant number := 0.05;\n  c_cap  constant number := 4000;\n\n  function contribution(p_gross in number) return number is\n  begin\n    return round(least(p_gross * c_rate, c_cap), 2);\n  end contribution;\nend pension_rules;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

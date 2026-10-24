@@ -1,0 +1,84 @@
+{
+  "task": "t017_overdraft_limit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "BANK_ACCOUNTS_BU",
+      "task": "t017_overdraft_limit",
+      "score": 0.7133
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.6334
+    },
+    {
+      "name": "T003_ACCOUNTS_API",
+      "task": "t003_transfer_fee",
+      "score": 0.6312
+    },
+    {
+      "name": "BANK_ACCOUNTS",
+      "task": "t017_overdraft_limit",
+      "score": 0.6244
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ATM_API",
+    "BANK_ACCOUNTS_BU",
+    "T008_PAYMENTS_API",
+    "T003_ACCOUNTS_API",
+    "BANK_ACCOUNTS"
+  ],
+  "buggy_objects": [
+    "BANK_ACCOUNTS_BU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "BANK_ACCOUNTS_BU"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1609,
+  "wall_seconds": 5.01,
+  "timestamp": "2026-10-24T02:57:39",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1609,
+      "output_tokens": 110,
+      "seconds": 4.55,
+      "edited_objects": [
+        "BANK_ACCOUNTS_BU"
+      ],
+      "cause": "bank_accounts_bu trigger checks the wrong condition for overdraft limit violation.",
+      "candidate": "create or replace trigger bank_accounts_bu\nbefore update of balance on bank_accounts\nfor each row\nbegin\n  -- The balance may not go below minus the overdraft limit.\n  if :new.balance < -:new.overdraft_limit then\n    raise_application_error(-20070, 'Overdraft limit exceeded');\n  end if;\nend;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

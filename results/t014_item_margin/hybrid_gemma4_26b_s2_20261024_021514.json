@@ -1,0 +1,84 @@
+{
+  "task": "t014_item_margin",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "ITEM_MARGINS_V",
+      "task": "t014_item_margin",
+      "score": 1.0
+    },
+    {
+      "name": "AVERAGE_UNIT_COST",
+      "task": "t014_item_margin",
+      "score": 0.6851
+    },
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.6774
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6528
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 69,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "MARGIN_REPORT",
+    "ITEM_MARGINS_V",
+    "AVERAGE_UNIT_COST",
+    "T001_PRICING",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "AVERAGE_UNIT_COST"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1358,
+  "wall_seconds": 5.6,
+  "timestamp": "2026-10-24T02:15:14",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1358,
+      "output_tokens": 135,
+      "seconds": 5.11,
+      "edited_objects": [
+        "AVERAGE_UNIT_COST"
+      ],
+      "cause": "average_unit_cost calculates the average of receipt totals instead of the weighted average cost per unit.",
+      "candidate": "create or replace function average_unit_cost(p_sku in varchar2) return number is\n  -- Weighted average purchase cost per unit over all goods receipts of an item.\n  l_cost number;\nbegin\n  select sum(total_cost) / nullif(sum(qty), 0)\n    into l_cost\n    from goods_receipts\n   where sku = p_sku;\n  return l_cost;\nend average_unit_cost;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

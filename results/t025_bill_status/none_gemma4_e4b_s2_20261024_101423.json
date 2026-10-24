@@ -1,0 +1,92 @@
+{
+  "task": "t025_bill_status",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "BILLING_API"
+  ],
+  "buggy_objects": [
+    "BILLS_BU"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 636,
+  "wall_seconds": 67.65,
+  "timestamp": "2026-10-24T10:14:23",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 636,
+      "output_tokens": 490,
+      "seconds": 28.1,
+      "edited_objects": [
+        "BILLING_API"
+      ],
+      "cause": "The pay procedure only records the payment but does not update the bill status to PAID if the payment covers the full amount.",
+      "candidate": "create or replace package body billing_api as\n  procedure pay(p_bill_id in number, p_amount in number) is\n    v_remaining_balance NUMBER;\n  begin\n    -- Record the payment\n    insert into bill_payments (bill_id, amount) values (p_bill_id, p_amount);\n\n    -- Check the remaining balance and update the bill status if fully paid\n    select remaining_balance into v_remaining_balance\n    from bills\n    where bill_id = p_bill_id\n    for update;\n\n    -- Assuming there is a mechanism (like a stored procedure or direct update)\n    -- to calculate the new balance after payment. For this fix, we assume\n    -- we need to check if the payment made covers the outstanding balance.\n    -- Since we don't have the full schema, we must assume a mechanism to update the bill status.\n    -- A common pattern is to update the bill's balance and then check if it's zero.\n\n    -- For the purpose of fixing the test failure based on the description,\n    -- we must update the bill status if the payment clears the balance.\n    -- We assume a function or logic exists to determine the new balance.\n    -- If the payment amount equals or exceeds the outstanding balance, the status should be PAID.\n\n    -- A simplified approach assuming we can check the balance after payment:\n    -- In a real scenario, the balance update would happen here.\n    -- Since the test expects 'PAID' when the payment covers the bill, we simulate that check.\n\n    -- If the payment amount is sufficient to cover the outstanding balance (v_remaining_balance),\n    -- we update the bill status to PAID.\n    if p_amount >= v_remaining_balance then\n      update bills\n      set status = 'PAID'\n      where bill_id = p_bill_id;\n    end if;\n\n  exception\n    when no_data_found then\n      -- Handle case where bill_id does not exist\n      null;\n  end pay;\nend billing_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY BILLING_API line 9, col 12: PL/SQL: ORA-00904: \"REMAINING_BALANCE\": invalid identifier",
+        "PACKAGE BODY BILLING_API line 9, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1212,
+      "output_tokens": 315,
+      "seconds": 14.05,
+      "edited_objects": [
+        "BILLING_API"
+      ],
+      "cause": "The original code attempted to select 'remaining_balance' from 'bills' without knowing the schema, leading to ORA-00904.",
+      "candidate": "create or replace package body billing_api as\n  procedure pay(p_bill_id in number, p_amount in number) is\n    v_outstanding_balance NUMBER;\n  begin\n    -- 1. Record the payment\n    insert into bill_payments (bill_id, amount) values (p_bill_id, p_amount);\n\n    -- 2. Get the current outstanding balance for the bill\n    -- Assuming 'bills' table has a column 'balance_due' representing the outstanding amount.\n    select balance_due into v_outstanding_balance\n    from bills\n    where bill_id = p_bill_id;\n\n    -- 3. Update the bill's balance and status\n    -- Decrease the balance due by the payment amount.\n    update bills\n    set balance_due = balance_due - p_amount,\n        status = CASE\n                     WHEN (balance_due - p_amount) <= 0 THEN 'PAID'\n                     ELSE 'PARTIAL'\n                 END\n    where bill_id = p_bill_id;\n\n  exception\n    when no_data_found then\n      -- Handle case where bill_id does not exist\n      null;\n  end pay;\nend billing_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY BILLING_API line 10, col 12: PL/SQL: ORA-00904: \"BALANCE_DUE\": invalid identifier",
+        "PACKAGE BODY BILLING_API line 10, col 5: PL/SQL: SQL Statement ignored",
+        "PACKAGE BODY BILLING_API line 19, col 28: PL/SQL: ORA-00904: \"BALANCE_DUE\": invalid identifier",
+        "PACKAGE BODY BILLING_API line 16, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1675,
+      "output_tokens": 385,
+      "seconds": 19.27,
+      "edited_objects": [
+        "BILLING_API"
+      ],
+      "cause": "The schema structure is unknown, and the previous attempts used non-existent columns ('remaining_balance', 'balance_due').",
+      "candidate": "create or replace package body billing_api as\n  procedure pay(p_bill_id in number, p_amount in number) is\n    v_current_amount_due NUMBER;\n  begin\n    -- 1. Record the payment\n    insert into bill_payments (bill_id, amount) values (p_bill_id, p_amount);\n\n    -- 2. Get the current outstanding amount due for the bill\n    -- Assuming the bill table has a column named 'amount_due'\n    select amount_due into v_current_amount_due\n    from bills\n    where bill_id = p_bill_id;\n\n    -- 3. Update the bill's amount due and status\n    update bills\n    set amount_due = amount_due - p_amount,\n        status = CASE\n                     -- If the new amount due is zero or less, the bill is PAID.\n                     WHEN (amount_due - p_amount) <= 0 THEN 'PAID'\n                     -- Otherwise, it is PARTIAL.\n                     ELSE 'PARTIAL'\n                 END\n    where bill_id = p_bill_id;\n\n  exception\n    when no_data_found then\n      -- Handle case where bill_id does not exist\n      null;\n  end pay;\nend billing_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY BILLING_API line 10, col 12: PL/SQL: ORA-00904: \"AMOUNT_DUE\": invalid identifier",
+        "PACKAGE BODY BILLING_API line 10, col 5: PL/SQL: SQL Statement ignored",
+        "PACKAGE BODY BILLING_API line 19, col 28: PL/SQL: ORA-00904: \"AMOUNT_DUE\": invalid identifier",
+        "PACKAGE BODY BILLING_API line 15, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

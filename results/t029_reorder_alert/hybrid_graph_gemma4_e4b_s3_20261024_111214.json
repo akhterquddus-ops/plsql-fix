@@ -1,0 +1,119 @@
+{
+  "task": "t029_reorder_alert",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.8746
+    },
+    {
+      "name": "WAREHOUSE_API",
+      "task": "t013_stock_moves",
+      "score": 0.8131
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.7647
+    },
+    {
+      "name": "ORDER_STATUS_API",
+      "task": "t022_order_audit",
+      "score": 0.7567
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "STOCK_COUNT_API",
+    "INVENTORY_LEVELS",
+    "INVENTORY_LEVELS_AU",
+    "REORDER_REQUESTS",
+    "REORDER_RULES",
+    "T005_ORDERS_API",
+    "WAREHOUSE_API",
+    "T001_ORDERS_API",
+    "ORDER_STATUS_API"
+  ],
+  "buggy_objects": [
+    "REORDER_RULES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2453,
+  "wall_seconds": 109.81,
+  "timestamp": "2026-10-24T11:12:14",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2453,
+      "output_tokens": 1113,
+      "seconds": 67.95,
+      "edited_objects": [
+        "INVENTORY_LEVELS_AU",
+        "REORDER_RULES"
+      ],
+      "cause": "The trigger condition in INVENTORY_LEVELS_AU only inserts a request if the state changes from not needing reorder to needing reorder, which fails when stock count brings it exactly to the reorder point if it was already below or at the point.",
+      "candidate": "create or replace trigger inventory_levels_au\nafter update of on_hand on inventory_levels\nfor each row\nbegin\n  -- Raises one reorder request when an item crosses into the reorder zone or is at the reorder point after a count.\n  if reorder_rules.needs_reorder(:new.on_hand, :new.reorder_point)\n     and not reorder_rules.needs_reorder(:old.on_hand, :old.reorder_point) then\n    insert into reorder_requests (sku) values (:new.sku);\n  elsif reorder_rules.needs_reorder(:new.on_hand, :new.reorder_point)\n     and reorder_rules.needs_reorder(:old.on_hand, :old.reorder_point) then\n    -- If both old and new states require reorder, we only want to insert if the count just dropped to or below the point,\n    -- but the existing logic is flawed for the exact point case.\n    -- The requirement is: \"When a stock count brings an item exactly to its reorder point, no reorder request is created.\"\n    -- Wait, the bug report says: \"When a stock count brings an item exactly to its reorder point, no reorder request is created. Items that fall below the reorder point are reordered.\"\n    -- The failing tests suggest that when it hits the reorder point (or falls below), a request *should* be created if it wasn't already.\n    -- Test 1: count equal to reorder point raises a request (Expected 1, Actual 0).\n    -- Test 2: two counts down to the reorder point raise one request (Expected 1, Actual 0).\n    -- This implies that if the new count is <= reorder_point, a request should be made IF it wasn't already in the reorder zone (or if the count just dropped into it).\n    -- The original trigger logic:\n    -- if reorder_rules.needs_reorder(:new.on_hand, :new.reorder_point) -- New state needs reorder (on_hand <= reorder_point)\n    --    and not reorder_rules.needs_reorder(:old.on_hand, :old.reorder_point) -- Old state did NOT need reorder (on_hand > reorder_point)\n    -- then insert...\n    -- This logic correctly handles crossing *into* the reorder zone.\n    -- If the test expects a request when on_hand == reorder_point, the logic should be:\n    -- Insert if the new state needs reorder AND the old state did not need reorder.\n    -- Since reorder_rules.needs_reorder(p_on_hand, p_reorder_point) is p_on_hand < p_reorder_point,\n    -- the trigger only fires when on_hand < reorder_point.\n    -- To include on_hand = reorder_point, we must change reorder_rules.needs_reorder or the trigger logic.\n    -- Given the bug report states: \"When a stock count brings an item exactly to its reorder point, no reorder request is created. Items that fall below the reorder point are reordered.\"\n    -- This contradicts the failing tests which expect a request when count == reorder point.\n    -- Assuming the failing tests are correct and the bug report description is misleading/wrong regarding the exact point:\n    -- We need to trigger if the new count is <= reorder_point AND the old count was > reorder_point.\n    -- This means changing reorder_rules.needs_reorder to include equality.\n  if reorder_rules.needs_reorder_or_below(:new.on_hand, :new.reorder_point)\n     and not reorder_rules.needs_reorder_or_below(:old.on_hand, :old.reorder_point) then\n    insert into reorder_requests (sku) values (:new.sku);\n  end if;\nend inventory_levels_au;\n/\ncreate or replace package body reorder_rules as\n  function needs_reorder(p_on_hand in number, p_reorder_point in number) return boolean is\n  begin\n    return p_on_hand < p_reorder_point;\n  end needs_reorder;\n\n  function needs_reorder_or_below(p_on_hand in number, p_reorder_point in number) return boolean is\n  begin\n    return p_on_hand <= p_reorder_point;\n  end needs_reorder_or_below;\nend reorder_rules;\n/",
+      "compile_errors": [
+        "TRIGGER INVENTORY_LEVELS_AU line 35, col 5: PLS-00103: Encountered the symbol \"INVENTORY_LEVELS_AU\" when expecting one of the following:\n\n   if"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 3642,
+      "output_tokens": 324,
+      "seconds": 15.31,
+      "edited_objects": [
+        "INVENTORY_LEVELS_AU",
+        "REORDER_RULES"
+      ],
+      "cause": "The trigger body was incorrectly structured with an extra 'elsif' block and the trigger definition was not properly closed/redefined.",
+      "candidate": "create or replace trigger inventory_levels_au\nafter update of on_hand on inventory_levels\nfor each row\nbegin\n  -- Raises one reorder request when an item crosses into the reorder zone or is at the reorder point after a count.\n  if reorder_rules.needs_reorder_or_below(:new.on_hand, :new.reorder_point)\n     and not reorder_rules.needs_reorder_or_below(:old.on_hand, :old.reorder_point) then\n    insert into reorder_requests (sku) values (:new.sku);\n  end if;\nend inventory_levels_au;\n/\ncreate or replace package body reorder_rules as\n  function needs_reorder(p_on_hand in number, p_reorder_point in number) return boolean is\n  begin\n    return p_on_hand < p_reorder_point;\n  end needs_reorder;\n\n  function needs_reorder_or_below(p_on_hand in number, p_reorder_point in number) return boolean is\n  begin\n    return p_on_hand <= p_reorder_point;\n  end needs_reorder_or_below;\nend reorder_rules;\n/",
+      "compile_errors": [
+        "TRIGGER INVENTORY_LEVELS_AU line 3, col 20: PLS-00302: component 'NEEDS_REORDER_OR_BELOW' must be declared",
+        "TRIGGER INVENTORY_LEVELS_AU line 3, col 3: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 4058,
+      "output_tokens": 463,
+      "seconds": 20.29,
+      "edited_objects": [
+        "INVENTORY_LEVELS_AU",
+        "REORDER_RULES"
+      ],
+      "cause": "The trigger was calling a function (needs_reorder_or_below) that was not defined in the package specification, and the package body was not fully updated to include the necessary function signature for the trigger to compile.",
+      "candidate": "create or replace trigger inventory_levels_au\nafter update of on_hand on inventory_levels\nfor each row\nbegin\n  -- Raises one reorder request when an item crosses into the reorder zone or is at the reorder point after a count.\n  if reorder_rules.needs_reorder_or_below(:new.on_hand, :new.reorder_point)\n     and not reorder_rules.needs_reorder_or_below(:old.on_hand, :old.reorder_point) then\n    insert into reorder_requests (sku) values (:new.sku);\n  end if;\nend inventory_levels_au;\n/\ncreate or replace package reorder_rules as\n  -- An item is reordered when its stock falls to or below its reorder point.\n  function needs_reorder(p_on_hand in number, p_reorder_point in number) return boolean;\n  -- An item needs reorder if stock is less than or equal to the reorder point.\n  function needs_reorder_or_below(p_on_hand in number, p_reorder_point in number) return boolean;\nend reorder_rules;\n/\ncreate or replace package body reorder_rules as\n  function needs_reorder(p_on_hand in number, p_reorder_point in number) return boolean is\n  begin\n    return p_on_hand < p_reorder_point;\n  end needs_reorder;\n\n  function needs_reorder_or_below(p_on_hand in number, p_reorder_point in number) return boolean is\n  begin\n    return p_on_hand <= p_reorder_point;\n  end needs_reorder_or_below;\nend reorder_rules;\n/",
+      "compile_errors": [
+        "TRIGGER INVENTORY_LEVELS_AU line 3, col 20: PLS-00302: component 'NEEDS_REORDER_OR_BELOW' must be declared",
+        "TRIGGER INVENTORY_LEVELS_AU line 3, col 3: PL/SQL: Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

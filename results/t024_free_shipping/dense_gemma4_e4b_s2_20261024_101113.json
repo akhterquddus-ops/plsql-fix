@@ -1,0 +1,106 @@
+{
+  "task": "t024_free_shipping",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T009_SHIPPING_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.793
+    },
+    {
+      "name": "FREIGHT_CONFIG",
+      "task": "t024_free_shipping",
+      "score": 0.7285
+    },
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.67
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6551
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "SHIPPING_COST",
+    "T009_SHIPPING_PKG",
+    "FREIGHT_CONFIG",
+    "T003_FEES",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1544,
+  "wall_seconds": 41.43,
+  "timestamp": "2026-10-24T10:11:13",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1544,
+      "output_tokens": 164,
+      "seconds": 17.85,
+      "edited_objects": [
+        "SHIPPING_COST"
+      ],
+      "cause": "The free shipping threshold in freight_config.c_free_over is set to 50000 instead of 5000 as required by the bug report.",
+      "candidate": "create or replace package body shipping_cost as\n  function cost_for(p_order_total in number, p_weight_kg in number) return number is\n  begin\n    if p_order_total > freight_config.c_free_over then\n      return 0;\n    end if;\n    return freight_config.c_base_fee + ceil(p_weight_kg) * freight_config.c_fee_per_kg;\n  end cost_for;\nend shipping_cost;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1761,
+      "output_tokens": 164,
+      "seconds": 6.45,
+      "edited_objects": [
+        "SHIPPING_COST"
+      ],
+      "cause": "The free shipping threshold in freight_config.c_free_over is set to 50000 instead of 5000 as required by the bug report.",
+      "candidate": "create or replace package body shipping_cost as\n  function cost_for(p_order_total in number, p_weight_kg in number) return number is\n  begin\n    if p_order_total >= freight_config.c_free_over then\n      return 0;\n    end if;\n    return freight_config.c_base_fee + ceil(p_weight_kg) * freight_config.c_fee_per_kg;\n  end cost_for;\nend shipping_cost;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2232,
+      "output_tokens": 179,
+      "seconds": 10.82,
+      "edited_objects": [
+        "SHIPPING_COST"
+      ],
+      "cause": "The free shipping threshold in freight_config.c_free_over is set to 50000 instead of 5000, and the comparison operator should be greater than or equal to for orders exactly at the threshold to ship free.",
+      "candidate": "create or replace package body shipping_cost as\n  function cost_for(p_order_total in number, p_weight_kg in number) return number is\n  begin\n    if p_order_total >= freight_config.c_free_over then\n      return 0;\n    end if;\n    return freight_config.c_base_fee + ceil(p_weight_kg) * freight_config.c_fee_per_kg;\n  end cost_for;\nend shipping_cost;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

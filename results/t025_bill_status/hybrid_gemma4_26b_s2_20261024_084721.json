@@ -1,0 +1,84 @@
+{
+  "task": "t025_bill_status",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "BILLS_BU",
+      "task": "t025_bill_status",
+      "score": 1.0
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.9171
+    },
+    {
+      "name": "BILL_PAYMENTS_AI",
+      "task": "t025_bill_status",
+      "score": 0.8453
+    },
+    {
+      "name": "BILL_PAYMENTS",
+      "task": "t025_bill_status",
+      "score": 0.7439
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "BILLING_API",
+    "BILLS_BU",
+    "T008_PAYMENTS_API",
+    "BILL_PAYMENTS_AI",
+    "BILL_PAYMENTS"
+  ],
+  "buggy_objects": [
+    "BILLS_BU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "BILLS_BU"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1213,
+  "wall_seconds": 4.39,
+  "timestamp": "2026-10-24T08:47:21",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1213,
+      "output_tokens": 152,
+      "seconds": 3.9,
+      "edited_objects": [
+        "BILLS_BU"
+      ],
+      "cause": "bills_bu trigger used strict inequality (>) instead of (>=) for the PAID status check.",
+      "candidate": "create or replace trigger bills_bu\nbefore update of paid_amount on bills\nfor each row\nbegin\n  -- A bill is PAID once the payments cover its amount, PARTIAL while part of it is open.\n  if :new.paid_amount >= :new.amount then\n    :new.status := 'PAID';\n  elsif :new.paid_amount > 0 then\n    :new.status := 'PARTIAL';\n  else\n    :new.status := 'OPEN';\n  end if;\nend bills_bu;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

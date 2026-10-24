@@ -1,0 +1,79 @@
+{
+  "task": "t027_new_hire",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ONBOARDING_API",
+    "EMPLOYEE_DIRECTORY_V",
+    "HR_CONTACTS",
+    "HR_PEOPLE"
+  ],
+  "buggy_objects": [
+    "EMPLOYEE_DIRECTORY_IOI"
+  ],
+  "buggy_object_in_context": false,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "ONBOARDING_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1125,
+  "wall_seconds": 62.88,
+  "timestamp": "2026-10-24T10:24:32",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1125,
+      "output_tokens": 486,
+      "seconds": 32.04,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The add_hire procedure inserts data directly into the view EMPLOYEE_DIRECTORY_V, which is incorrect as it should insert into the underlying tables (HR_CONTACTS) to persist the phone number.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    -- Insert into HR_PEOPLE if not present (assuming p_name is for HR_PEOPLE)\n    -- Since the test implies HR_PEOPLE exists and is populated, we focus on HR_CONTACTS.\n    -- The original code inserted into the view, which is not allowed for DML unless it's a simple view.\n    -- We must insert into HR_CONTACTS to persist the phone number.\n    insert into hr_contacts (person_id, email, phone)\n    values (p_person_id, p_email, p_phone);\n\n    -- We might also need to ensure the person exists in HR_PEOPLE if the test setup doesn't guarantee it,\n    -- but based on the failing tests and the structure, the issue is the DML target.\n    -- If p_name needs to be saved in HR_PEOPLE, that logic is missing/assumed elsewhere,\n    -- but for the phone number issue, HR_CONTACTS is the target.\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 3
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2222,
+      "output_tokens": 442,
+      "seconds": 26.42,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The add_hire procedure fails because it attempts to insert into HR_CONTACTS without ensuring the corresponding person_id exists in HR_PEOPLE, violating the foreign key constraint.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    -- Ensure the person exists in HR_PEOPLE first, as HR_CONTACTS references it.\n    -- We use MERGE or INSERT/UPDATE logic. Since we don't know if the person exists,\n    -- we insert into HR_PEOPLE if they don't exist, assuming p_name is the full name.\n    insert into hr_people (person_id, full_name)\n    select p_person_id, p_name\n    where not exists (select 1 from hr_people where person_id = p_person_id);\n\n    -- Now insert into HR_CONTACTS, which is the correct target for contact details.\n    insert into hr_contacts (person_id, email, phone)\n    values (p_person_id, p_email, p_phone);\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

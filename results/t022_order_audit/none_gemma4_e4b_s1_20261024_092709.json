@@ -1,0 +1,75 @@
+{
+  "task": "t022_order_audit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ORDER_STATUS_API"
+  ],
+  "buggy_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "buggy_object_in_context": false,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "ORDER_STATUS_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 848,
+  "wall_seconds": 57.56,
+  "timestamp": "2026-10-24T09:27:09",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 848,
+      "output_tokens": 383,
+      "seconds": 38.34,
+      "edited_objects": [
+        "ORDER_STATUS_API"
+      ],
+      "cause": "The set_status procedure does not log the status change to order_status_log, which is required for last_change to function correctly.",
+      "candidate": "create or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n    v_old_status shop_orders.status%TYPE;\n  begin\n    -- Get the current status before updating\n    select status into v_old_status from shop_orders where order_id = p_order_id;\n\n    -- Update the status\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n\n    -- Log the status change if it is different from the old status\n    if upper(p_status) <> v_old_status then\n      insert into order_status_log (order_id, old_status, new_status, log_date)\n      values (p_order_id, v_old_status, upper(p_status), SYSDATE);\n    end if;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select old_status || '->' || new_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY ORDER_STATUS_API line 13, col 71: PL/SQL: ORA-00904: \"LOG_DATE\": invalid identifier",
+        "PACKAGE BODY ORDER_STATUS_API line 13, col 7: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1319,
+      "output_tokens": 372,
+      "seconds": 14.91,
+      "edited_objects": [
+        "ORDER_STATUS_API"
+      ],
+      "cause": "The order_status_log table is missing the LOG_DATE column, causing the INSERT statement in set_status to fail.",
+      "candidate": "create or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n    v_old_status shop_orders.status%TYPE;\n  begin\n    -- Get the current status before updating\n    select status into v_old_status from shop_orders where order_id = p_order_id;\n\n    -- Update the status\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n\n    -- Log the status change if it is different from the old status\n    if upper(p_status) <> v_old_status then\n      insert into order_status_log (order_id, old_status, new_status)\n      values (p_order_id, v_old_status, upper(p_status));\n    end if;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select old_status || '->' || new_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

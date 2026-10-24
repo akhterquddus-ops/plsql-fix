@@ -1,0 +1,91 @@
+{
+  "task": "t027_new_hire",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ONBOARDING_API"
+  ],
+  "buggy_objects": [
+    "EMPLOYEE_DIRECTORY_IOI"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 920,
+  "wall_seconds": 110.69,
+  "timestamp": "2026-10-24T10:56:20",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 920,
+      "output_tokens": 347,
+      "seconds": 24.23,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The procedure add_hire inserts data into employee_directory_v, but the test failures suggest that the data is not persisting or being retrieved correctly, likely due to a missing COMMIT or the view not reflecting changes immediately, although the most direct fix based on the symptom (phone number missing) and the provided code structure is to ensure the insertion is finalized.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone)\n    values (p_person_id, p_name, p_email, p_phone);\n    COMMIT;\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1921,
+      "output_tokens": 351,
+      "seconds": 23.57,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The test framework is likely running in a transactional context where the COMMIT in add_hire is causing the test to fail because the test runner expects the state to be rolled back automatically, and the view employee_directory_v might be based on a table that is not being updated correctly or the test environment is sensitive to commits. Removing the explicit COMMIT allows the test runner to manage the transaction state.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone)\n    values (p_person_id, p_name, p_email, p_phone);\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 3
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 3261,
+      "output_tokens": 739,
+      "seconds": 56.28,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The ORA-00001 error indicates that the insertion into employee_directory_v is failing because a unique constraint on PERSON_ID is violated, suggesting that the view employee_directory_v is likely backed by a table (or triggers are firing on it) that already contains the person_id, and the test setup is not cleaning up data between test runs. Since the bug report implies the data *should* be saved, and the previous fix (COMMIT) was removed due to test warnings, the issue is likely that the view structure itself is causing the conflict when inserting, or the test setup is flawed. However, given the context of fixing the API, and assuming the view is a simple wrapper around a table, the most robust fix to allow testing without data collision is to ensure the insertion logic is sound, but since the error points to a constraint violation on PERSON_ID, and the API is the only code we can change, we must assume the view definition is problematic or the test setup is flawed. If we cannot change the underlying schema/tests, we must assume the view is not the direct target, but since it is, we must stick to the API. The previous fix removed COMMIT, which was correct for testability. The current error is a constraint violation. If the view is based on a table, and the test framework is running multiple tests, the data persists. The only way to fix this within the API is to ensure we are not causing the conflict, which is impossible if the test framework is reusing IDs. Given the original bug was about missing data, and now it's about constraint violation, I will revert the COMMIT removal and assume the test framework expects the commit, but I must also address the possibility that the view is not the actual target, but since I can't see the view definition, I will stick to the original structure but acknowledge the constraint violation is external to the API logic for data insertion itself. Since the previous fix was removing COMMIT, and that led to the constraint violation error (which implies the test runner is trying to run multiple times without cleanup), I will re-introduce COMMIT, as this is the standard behavior for a procedure that saves data, and the test framework warnings about rollback are secondary to the functional bug report.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone)\n    values (p_person_id, p_name, p_email, p_phone);\n    COMMIT;\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 3
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "task": "t028_fiscal_quarter",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T007_REPORTS_API",
+      "task": "t007_region_summary",
+      "score": 1.0
+    },
+    {
+      "name": "VAT_RATES_2026",
+      "task": "t015_vat_synonym",
+      "score": 0.8824
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.845
+    },
+    {
+      "name": "T007_CUSTOMER_Q",
+      "task": "t007_region_summary",
+      "score": 0.8393
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "SALES_REPORT",
+    "QUARTERLY_SALES_V",
+    "FISCAL_CALENDAR",
+    "SALES",
+    "T007_REPORTS_API",
+    "VAT_RATES_2026",
+    "T001_ORDERS_API",
+    "T007_CUSTOMER_Q"
+  ],
+  "buggy_objects": [
+    "FISCAL_CALENDAR"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "FISCAL_CALENDAR"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2209,
+  "wall_seconds": 44.4,
+  "timestamp": "2026-10-24T09:58:29",
+  "baseline": {
+    "tests": 4,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2209,
+      "output_tokens": 602,
+      "seconds": 42.18,
+      "edited_objects": [
+        "FISCAL_CALENDAR"
+      ],
+      "cause": "The fiscal_calendar.quarter_of function incorrectly calculates the quarter for July-September (Q1) and October-December (Q2) based on the fiscal year starting July 1st.",
+      "candidate": "create or replace package body fiscal_calendar as\n  function year_of(p_date in date) return number is\n  begin\n    return extract(year from p_date) + case when extract(month from p_date) >= 7 then 1 else 0 end;\n  end year_of;\n\n  function quarter_of(p_date in date) return number is\n  begin\n    -- Fiscal year starts in July (Month 7).\n    -- Q1: Jul, Aug, Sep (Months 7, 8, 9)\n    -- Q2: Oct, Nov, Dec (Months 10, 11, 12)\n    -- Q3: Jan, Feb, Mar (Months 1, 2, 3)\n    -- Q4: Apr, May, Jun (Months 4, 5, 6)\n    \n    -- Adjust month to be 1-based relative to the fiscal year start (July=1, Aug=2, ..., Jun=12)\n    -- If month is 1-6, add 7 to map it to 8-13.\n    -- If month is 7-12, subtract 6 to map it to 1-6.\n    \n    -- A simpler way: map calendar month (1-12) to fiscal quarter (1-4)\n    -- Months 7, 8, 9 -> Q1\n    -- Months 10, 11, 12 -> Q2\n    -- Months 1, 2, 3 -> Q3\n    -- Months 4, 5, 6 -> Q4\n    \n    case extract(month from p_date)\n      when 7 then return 1; -- July\n      when 8 then return 1; -- August\n      when 9 then return 1; -- September\n      when 10 then return 2; -- October\n      when 11 then return 2; -- November\n      when 12 then return 2; -- December\n      when 1 then return 3; -- January\n      when 2 then return 3; -- February\n      when 3 then return 3; -- March\n      when 4 then return 4; -- April\n      when 5 then return 4; -- May\n      when 6 then return 4; -- June\n      else return null; -- Should not happen\n    end case;\n  end quarter_of;\nend fiscal_calendar;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

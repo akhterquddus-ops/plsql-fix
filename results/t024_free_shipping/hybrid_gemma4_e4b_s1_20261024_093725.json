@@ -1,0 +1,111 @@
+{
+  "task": "t024_free_shipping",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T009_SHIPPING_PKG",
+      "task": "t009_shipping_weight",
+      "score": 1.0
+    },
+    {
+      "name": "FREIGHT_CONFIG",
+      "task": "t024_free_shipping",
+      "score": 0.8422
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6675
+    },
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.5958
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "SHIPPING_COST",
+    "T009_SHIPPING_PKG",
+    "FREIGHT_CONFIG",
+    "T009_CHECKOUT_API",
+    "T003_FEES"
+  ],
+  "buggy_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1544,
+  "wall_seconds": 48.13,
+  "timestamp": "2026-10-24T09:37:25",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1544,
+      "output_tokens": 142,
+      "seconds": 23.41,
+      "edited_objects": [
+        "FREIGHT_CONFIG"
+      ],
+      "cause": "The constant c_free_over in freight_config is set to 50000 instead of 5000, causing orders above 5000 to be incorrectly charged shipping.",
+      "candidate": "create or replace package body freight_config as\n  -- Shipping settings. Amounts in the shop currency, weights in kg.\n  c_base_fee   constant number := 250;\n  c_fee_per_kg constant number := 40;\n  c_free_over  constant number := 5000;   -- orders above this amount ship free\nend freight_config;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1993,
+      "output_tokens": 174,
+      "seconds": 10.92,
+      "edited_objects": [
+        "SHIPPING_COST"
+      ],
+      "cause": "The shipping cost calculation in shipping_cost.cost_for uses ceil(p_weight_kg) which results in a non-zero cost even when the order total is above the free threshold if the weight is non-zero.",
+      "candidate": "create or replace package body shipping_cost as\n  function cost_for(p_order_total in number, p_weight_kg in number) return number is\n  begin\n    if p_order_total > freight_config.c_free_over then\n      return 0;\n    end if;\n    return freight_config.c_base_fee + ceil(p_weight_kg) * freight_config.c_fee_per_kg;\n  end cost_for;\nend shipping_cost;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2220,
+      "output_tokens": 168,
+      "seconds": 7.33,
+      "edited_objects": [
+        "SHIPPING_COST"
+      ],
+      "cause": "The shipping cost calculation in shipping_cost.cost_for does not correctly return 0 when the order total exceeds the free threshold, as the weight calculation is performed regardless of the total.",
+      "candidate": "create or replace package body shipping_cost as\n  function cost_for(p_order_total in number, p_weight_kg in number) return number is\n  begin\n    if p_order_total > freight_config.c_free_over then\n      return 0;\n    else\n      return freight_config.c_base_fee + ceil(p_weight_kg) * freight_config.c_fee_per_kg;\n    end if;\n  end cost_for;\nend shipping_cost;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "task": "t025_bill_status",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "BILLING_API"
+  ],
+  "buggy_objects": [
+    "BILLS_BU"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 636,
+  "wall_seconds": 57.88,
+  "timestamp": "2026-10-24T09:39:42",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 636,
+      "output_tokens": 494,
+      "seconds": 31.2,
+      "edited_objects": [
+        "BILLING_API"
+      ],
+      "cause": "The pay procedure only records the payment but does not update the bill status to PAID if the payment covers the full amount.",
+      "candidate": "create or replace package body billing_api as\n  procedure pay(p_bill_id in number, p_amount in number) is\n    v_total_amount bill_payments.total_amount%TYPE; -- Assuming a mechanism to get total bill amount exists or we need to calculate it\n    v_paid_amount bill_payments.total_amount%TYPE; -- This is tricky without knowing the schema, but we must update the bill status.\n  begin\n    -- 1. Record the payment\n    insert into bill_payments (bill_id, amount) values (p_bill_id, p_amount);\n\n    -- 2. Check if the payment completes the bill.\n    -- Since we don't have the full schema (like a BILLS table with amount_due),\n    -- we must assume that the logic to determine if the bill is fully paid resides here\n    -- or that we need to update a status field on the BILLS table.\n    -- Based on the test failure, the status needs to be updated to 'PAID' if the payment covers the remaining balance.\n\n    -- *** ASSUMPTION: There is a BILLS table and a column (e.g., status) that needs updating. ***\n    -- *** ASSUMPTION: We need to calculate the total amount paid for the bill_id. ***\n\n    -- For the purpose of fixing the logic based on the bug report, we must update the bill status.\n    -- We will assume a BILLS table exists with a 'status' column.\n    -- We must calculate the total amount paid so far for the bill.\n\n    UPDATE bills\n    SET status = CASE\n        WHEN (SELECT SUM(amount) FROM bill_payments WHERE bill_id = p_bill_id) >= amount_due -- Assuming amount_due exists on BILLS table\n        THEN 'PAID'\n        ELSE 'PARTIAL'\n      END\n    WHERE bill_id = p_bill_id;\n\n  exception\n    when others then\n      -- Log error or re-raise if necessary\n      raise;\n  end pay;\nend billing_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY BILLING_API line 3, col 34: PLS-00302: component 'TOTAL_AMOUNT' must be declared",
+        "PACKAGE BODY BILLING_API line 0, col 0: PL/SQL: Compilation unit analysis terminated"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1213,
+      "output_tokens": 218,
+      "seconds": 10.07,
+      "edited_objects": [
+        "BILLING_API"
+      ],
+      "cause": "The previous attempt used an undeclared column 'total_amount' in the package body.",
+      "candidate": "create or replace package body billing_api as\n  procedure pay(p_bill_id in number, p_amount in number) is\n  begin\n    -- Record the payment\n    insert into bill_payments (bill_id, amount) values (p_bill_id, p_amount);\n\n    -- Update the bill status based on the total amount paid vs. the amount due.\n    -- This assumes a 'BILLS' table exists with 'amount_due' and 'status' columns.\n    UPDATE bills\n    SET status = CASE\n        WHEN (SELECT SUM(amount) FROM bill_payments WHERE bill_id = p_bill_id) >= amount_due\n        THEN 'PAID'\n        ELSE 'PARTIAL'\n      END\n    WHERE bill_id = p_bill_id;\n\n  end pay;\nend billing_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY BILLING_API line 11, col 83: PL/SQL: ORA-00904: \"AMOUNT_DUE\": invalid identifier",
+        "PACKAGE BODY BILLING_API line 9, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1517,
+      "output_tokens": 247,
+      "seconds": 10.39,
+      "edited_objects": [
+        "BILLING_API"
+      ],
+      "cause": "The previous attempt referenced an undeclared column 'amount_due' in the BILLS table.",
+      "candidate": "create or replace package body billing_api as\n  procedure pay(p_bill_id in number, p_amount in number) is\n  begin\n    -- Record the payment\n    insert into bill_payments (bill_id, amount) values (p_bill_id, p_amount);\n\n    -- Update the bill status based on the total amount paid vs. the amount due.\n    -- Since the schema is unknown, we must assume the necessary columns exist for the test to pass.\n    -- We assume the BILLS table has a column 'amount_due' and a 'status' column.\n    UPDATE bills\n    SET status = CASE\n        WHEN (SELECT SUM(amount) FROM bill_payments WHERE bill_id = p_bill_id) >= amount_due -- Assuming amount_due exists\n        THEN 'PAID'\n        ELSE 'PARTIAL'\n      END\n    WHERE bill_id = p_bill_id;\n\n  end pay;\nend billing_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY BILLING_API line 12, col 83: PL/SQL: ORA-00904: \"AMOUNT_DUE\": invalid identifier",
+        "PACKAGE BODY BILLING_API line 10, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

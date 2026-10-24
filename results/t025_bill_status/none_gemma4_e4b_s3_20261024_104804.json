@@ -1,0 +1,88 @@
+{
+  "task": "t025_bill_status",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "BILLING_API"
+  ],
+  "buggy_objects": [
+    "BILLS_BU"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 636,
+  "wall_seconds": 58.02,
+  "timestamp": "2026-10-24T10:48:04",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 636,
+      "output_tokens": 288,
+      "seconds": 17.85,
+      "edited_objects": [
+        "BILLING_API"
+      ],
+      "cause": "The pay procedure only records the payment but does not update the bill status to PAID if the payment covers the full amount.",
+      "candidate": "create or replace package body billing_api as\n  procedure pay(p_bill_id in number, p_amount in number) is\n    v_remaining_balance NUMBER;\n  begin\n    insert into bill_payments (bill_id, amount) values (p_bill_id, p_amount);\n\n    -- Calculate remaining balance after payment\n    select (b.amount_due - NVL(SUM(bp.amount), 0)) into v_remaining_balance\n    from bills b\n    left join bill_payments bp on b.bill_id = bp.bill_id\n    where b.bill_id = p_bill_id\n    group by b.amount_due;\n\n    -- Update bill status if balance is zero or less\n    if v_remaining_balance <= 0 then\n      update bills\n      set status = 'PAID'\n      where bill_id = p_bill_id;\n    end if;\n\n  exception\n    when no_data_found then\n      -- Handle case where bill_id might not exist, though usually handled by caller\n      null;\n  end pay;\nend billing_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY BILLING_API line 12, col 14: PL/SQL: ORA-00904: \"B\".\"AMOUNT_DUE\": invalid identifier",
+        "PACKAGE BODY BILLING_API line 8, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1012,
+      "output_tokens": 381,
+      "seconds": 17.65,
+      "edited_objects": [
+        "BILLING_API"
+      ],
+      "cause": "The query to calculate the remaining balance used an incorrect column name 'amount_due' which does not exist in the bills table structure assumed by the original code context.",
+      "candidate": "create or replace package body billing_api as\n  procedure pay(p_bill_id in number, p_amount in number) is\n    v_remaining_balance NUMBER;\n  begin\n    insert into bill_payments (bill_id, amount) values (p_bill_id, p_amount);\n\n    -- Calculate remaining balance after payment\n    -- Assuming the bills table has a column for the original amount and a column for the current balance or amount_due.\n    -- Based on the context, I assume 'amount_due' should be the column representing the total amount owed for the bill.\n    -- If 'amount_due' is not the correct column name, this fix relies on it being the correct one for the total amount.\n    select (b.amount_due - NVL(SUM(bp.amount), 0)) into v_remaining_balance\n    from bills b\n    left join bill_payments bp on b.bill_id = bp.bill_id\n    where b.bill_id = p_bill_id\n    group by b.amount_due;\n\n    -- Update bill status if balance is zero or less\n    if v_remaining_balance <= 0 then\n      update bills\n      set status = 'PAID'\n      where bill_id = p_bill_id;\n    end if;\n\n  exception\n    when no_data_found then\n      -- Handle case where bill_id might not exist, though usually handled by caller\n      null;\n  end pay;\nend billing_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY BILLING_API line 15, col 14: PL/SQL: ORA-00904: \"B\".\"AMOUNT_DUE\": invalid identifier",
+        "PACKAGE BODY BILLING_API line 11, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1482,
+      "output_tokens": 366,
+      "seconds": 16.35,
+      "edited_objects": [
+        "BILLING_API"
+      ],
+      "cause": "The column name 'amount_due' used in the SELECT statement for calculating the remaining balance is invalid in the bills table.",
+      "candidate": "create or replace package body billing_api as\n  procedure pay(p_bill_id in number, p_amount in number) is\n    v_remaining_balance NUMBER;\n  begin\n    insert into bill_payments (bill_id, amount) values (p_bill_id, p_amount);\n\n    -- Calculate remaining balance after payment\n    -- Assuming the bills table has a column 'total_amount' for the original amount, and we subtract payments.\n    -- If 'amount_due' was intended to be the total amount, I'm replacing it with a placeholder 'total_amount'\n    -- based on common database design, as the original error suggests 'amount_due' is wrong.\n    select (b.total_amount - NVL(SUM(bp.amount), 0)) into v_remaining_balance\n    from bills b\n    left join bill_payments bp on b.bill_id = bp.bill_id\n    where b.bill_id = p_bill_id\n    group by b.total_amount;\n\n    -- Update bill status if balance is zero or less\n    if v_remaining_balance <= 0 then\n      update bills\n      set status = 'PAID'\n      where bill_id = p_bill_id;\n    end if;\n\n  exception\n    when no_data_found then\n      -- Handle case where bill_id might not exist, though usually handled by caller\n      null;\n  end pay;\nend billing_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY BILLING_API line 15, col 14: PL/SQL: ORA-00904: \"B\".\"TOTAL_AMOUNT\": invalid identifier",
+        "PACKAGE BODY BILLING_API line 11, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

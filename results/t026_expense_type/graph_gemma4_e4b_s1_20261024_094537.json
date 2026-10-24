@@ -1,0 +1,61 @@
+{
+  "task": "t026_expense_type",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "EXPENSE_API",
+    "AMOUNT_T",
+    "EXPENSE_LINES"
+  ],
+  "buggy_objects": [
+    "AMOUNT_T"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "AMOUNT_T"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 947,
+  "wall_seconds": 16.85,
+  "timestamp": "2026-10-24T09:45:37",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 947,
+      "output_tokens": 93,
+      "seconds": 14.65,
+      "edited_objects": [
+        "AMOUNT_T"
+      ],
+      "cause": "The to_base member function in AMOUNT_T incorrectly calculates the base currency amount by dividing the value by the rate_to_base, when it should multiply.",
+      "candidate": "create or replace type body amount_t as\n  member function to_base return number is\n  begin\n    return round(value * rate_to_base, 2);\n  end to_base;\nend;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "task": "t024_free_shipping",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T009_SHIPPING_PKG",
+      "task": "t009_shipping_weight",
+      "score": 1.0
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6634
+    },
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.5939
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.5826
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "SHIPPING_COST",
+    "FREIGHT_CONFIG",
+    "T009_SHIPPING_PKG",
+    "T009_CHECKOUT_API",
+    "T003_FEES",
+    "T009_PARCEL_PKG"
+  ],
+  "buggy_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1771,
+  "wall_seconds": 36.07,
+  "timestamp": "2026-10-24T10:47:02",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1771,
+      "output_tokens": 158,
+      "seconds": 21.26,
+      "edited_objects": [
+        "SHIPPING_COST"
+      ],
+      "cause": "The comparison in shipping_cost.cost_for uses strict inequality (>) instead of greater than or equal to (>=) for the free shipping threshold.",
+      "candidate": "create or replace package body shipping_cost as\n  function cost_for(p_order_total in number, p_weight_kg in number) return number is\n  begin\n    if p_order_total >= freight_config.c_free_over then\n      return 0;\n    end if;\n    return freight_config.c_base_fee + ceil(p_weight_kg) * freight_config.c_fee_per_kg;\n  end cost_for;\nend shipping_cost;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2236,
+      "output_tokens": 148,
+      "seconds": 10.37,
+      "edited_objects": [
+        "FREIGHT_CONFIG"
+      ],
+      "cause": "The constant c_free_over in freight_config is set to 50000, but the bug report indicates orders above 5000 should ship free, suggesting the constant value is incorrect for the intended business logic.",
+      "candidate": "create or replace package freight_config as\n  -- Shipping settings. Amounts in the shop currency, weights in kg.\n  c_base_fee   constant number := 250;\n  c_fee_per_kg constant number := 40;\n  c_free_over  constant number := 5000;   -- orders above this amount ship free\nend freight_config;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

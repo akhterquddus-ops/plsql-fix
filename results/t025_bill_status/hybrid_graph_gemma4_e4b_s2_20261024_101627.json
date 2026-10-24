@@ -1,0 +1,88 @@
+{
+  "task": "t025_bill_status",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 1.0
+    },
+    {
+      "name": "EXPENSE_API",
+      "task": "t026_expense_type",
+      "score": 0.6639
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.651
+    },
+    {
+      "name": "ORDER_STATUS_API",
+      "task": "t022_order_audit",
+      "score": 0.6357
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "BILLING_API",
+    "BILL_PAYMENTS",
+    "BILL_PAYMENTS_AI",
+    "BILLS",
+    "BILLS_BU",
+    "T008_PAYMENTS_API",
+    "EXPENSE_API",
+    "T009_CHECKOUT_API",
+    "ORDER_STATUS_API"
+  ],
+  "buggy_objects": [
+    "BILLS_BU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "BILLS_BU"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2034,
+  "wall_seconds": 22.98,
+  "timestamp": "2026-10-24T10:16:27",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2034,
+      "output_tokens": 160,
+      "seconds": 20.76,
+      "edited_objects": [
+        "BILLS_BU"
+      ],
+      "cause": "The trigger BILLS_BU incorrectly sets the status to 'PARTIAL' when paid_amount equals amount, instead of 'PAID'.",
+      "candidate": "create or replace trigger bills_bu\nbefore update of paid_amount on bills\nfor each row\nbegin\n  -- A bill is PAID once the payments cover its amount, PARTIAL while part of it is open.\n  if :new.paid_amount >= :new.amount then\n    :new.status := 'PAID';\n  elsif :new.paid_amount > 0 then\n    :new.status := 'PARTIAL';\n  else\n    :new.status := 'OPEN';\n  end if;\nend bills_bu;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

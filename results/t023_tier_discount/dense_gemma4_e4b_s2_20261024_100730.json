@@ -1,0 +1,84 @@
+{
+  "task": "t023_tier_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "CUSTOMER_TIERS_V",
+      "task": "t023_tier_discount",
+      "score": 0.6735
+    },
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.6209
+    },
+    {
+      "name": "DISCOUNT_TIERS",
+      "task": "t023_tier_discount",
+      "score": 0.6091
+    },
+    {
+      "name": "POINTS_RULES",
+      "task": "t018_loyalty_points",
+      "score": 0.6005
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "PRICING_QUOTE",
+    "CUSTOMER_TIERS_V",
+    "T001_PRICING",
+    "DISCOUNT_TIERS",
+    "POINTS_RULES"
+  ],
+  "buggy_objects": [
+    "CUSTOMER_TIERS_V"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "CUSTOMER_TIERS_V"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1318,
+  "wall_seconds": 19.91,
+  "timestamp": "2026-10-24T10:07:30",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1318,
+      "output_tokens": 168,
+      "seconds": 17.66,
+      "edited_objects": [
+        "CUSTOMER_TIERS_V"
+      ],
+      "cause": "The view CUSTOMER_TIERS_V incorrectly selects the highest tier whose minimum spend is strictly less than the customer's annual spend, leading to the wrong discount being applied for exact round numbers.",
+      "candidate": "create or replace view customer_tiers_v as\n-- Loyalty tier of each customer: the highest tier whose minimum spend the customer has reached.\nselect c.customer_id, t.tier_name, t.discount_pct\n  from shop_customers c, discount_tiers t\n where t.min_spend <= c.annual_spend\n and t.min_spend = (select max(t2.min_spend)\n                        from discount_tiers t2\n                       where t2.min_spend <= c.annual_spend)\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

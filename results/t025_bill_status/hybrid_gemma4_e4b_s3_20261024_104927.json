@@ -1,0 +1,84 @@
+{
+  "task": "t025_bill_status",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "BILLS_BU",
+      "task": "t025_bill_status",
+      "score": 1.0
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.9178
+    },
+    {
+      "name": "BILL_PAYMENTS_AI",
+      "task": "t025_bill_status",
+      "score": 0.8448
+    },
+    {
+      "name": "BILL_PAYMENTS",
+      "task": "t025_bill_status",
+      "score": 0.7418
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "BILLING_API",
+    "BILLS_BU",
+    "T008_PAYMENTS_API",
+    "BILL_PAYMENTS_AI",
+    "BILL_PAYMENTS"
+  ],
+  "buggy_objects": [
+    "BILLS_BU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "BILLS_BU"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1209,
+  "wall_seconds": 19.1,
+  "timestamp": "2026-10-24T10:49:27",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1209,
+      "output_tokens": 161,
+      "seconds": 16.89,
+      "edited_objects": [
+        "BILLS_BU"
+      ],
+      "cause": "The trigger bills_bu incorrectly checks for paid_amount > amount to set status to 'PAID', failing when paid_amount equals amount.",
+      "candidate": "create or replace trigger bills_bu\nbefore update of paid_amount on bills\nfor each row\nbegin\n  -- A bill is PAID once the payments cover its amount, PARTIAL while part of it is open.\n  if :new.paid_amount >= :new.amount then\n    :new.status := 'PAID';\n  elsif :new.paid_amount > 0 then\n    :new.status := 'PARTIAL';\n  else\n    :new.status := 'OPEN';\n  end if;\nend bills_bu;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "task": "t026_expense_type",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.644
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.6379
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.6377
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6308
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "EXPENSE_API",
+    "T004_LOANS_API",
+    "T001_ORDERS_API",
+    "T008_PAYMENTS_API",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "AMOUNT_T"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1711,
+  "wall_seconds": 72.22,
+  "timestamp": "2026-10-24T10:52:32",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1711,
+      "output_tokens": 156,
+      "seconds": 19.05,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "The claim_total function incorrectly sums the converted amounts without considering the original currency amounts when calculating the total in the base currency.",
+      "candidate": "create or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      l_total := l_total + amount_t(l.amount, l.rate_to_base).to_base();\n    end loop;\n    return l_total;\n  end claim_total;\n/",
+      "compile_errors": [
+        "PACKAGE BODY EXPENSE_API line 9, col 18: PLS-00103: Encountered the symbol \"end-of-file\" when expecting one of the following:\n\n   begin end function pragma procedure"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1944,
+      "output_tokens": 157,
+      "seconds": 7.8,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "The package body for EXPENSE_API was missing the final 'end expense_api;' statement.",
+      "candidate": "create or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      l_total := l_total + amount_t(l.amount, l.rate_to_base).to_base();\n    end loop;\n    return l_total;\n  end claim_total;\nend expense_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2390,
+      "output_tokens": 612,
+      "seconds": 38.88,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "The logic in claim_total was flawed because it was summing the converted amounts, but the expected results suggest that for claims entirely in EUR, the amount should be used directly, and for mixed currencies, the conversion logic needs to be applied correctly, which implies that if the rate is 1 (or the currency is EUR), the amount should be treated as base currency. The original code already does this if amount_t handles EUR correctly, but the failure suggests a fundamental misunderstanding or missing logic regarding how amounts are aggregated when some are already in base currency vs. needing conversion. Given the failure on mixed currencies, the issue is likely that the conversion logic is being applied even when the rate is 1, or the test expects a different aggregation method. Re-examining the original code, it seems to rely entirely on amount_t.to_base(). If the test expects 150.5 when the calculation yields 151.44, it suggests the conversion factor or the input data is leading to an incorrect result. Assuming amount_t is correct, the issue might be that for EUR amounts, the rate_to_base should be 1, and the conversion should just return the amount. The current code does this if amount_t is implemented correctly. A common pitfall in such scenarios is that the sum of converted values is not what is expected if the underlying data structure implies some amounts are already in base currency and others are not. However, since the original code was: l_total := l_total + amount_t(l.amount, l.rate_to_base).to_base();, and this is the standard way to sum converted values, the bug might be that for EUR amounts (where rate_to_base should be 1), the function is somehow over-converting or the test expects a direct sum if the rate is 1. Let's modify the loop to explicitly handle the case where the rate is 1 (or the currency is EUR, assuming rate_to_base=1 implies EUR) to avoid potential floating point issues or incorrect application of conversion if amount_t is complex.",
+      "candidate": "create or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      if l.rate_to_base = 1 then\n        l_total := l_total + l.amount;\n      else\n        l_total := l_total + amount_t(l.amount, l.rate_to_base).to_base();\n      end if;\n    end loop;\n    return l_total;\n  end claim_total;\nend expense_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

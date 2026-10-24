@@ -1,0 +1,59 @@
+{
+  "task": "t022_order_audit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ORDER_STATUS_API"
+  ],
+  "buggy_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "buggy_object_in_context": false,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "ORDER_STATUS_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 853,
+  "wall_seconds": 60.47,
+  "timestamp": "2026-10-24T08:08:53",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 853,
+      "output_tokens": 3719,
+      "seconds": 60.0,
+      "edited_objects": [
+        "ORDER_STATUS_API"
+      ],
+      "cause": "order_status_api.last_change swapped the old_status and new_status columns in the return string",
+      "candidate": "create or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n  begin\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select old_status || '->' || new_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/\ncreate or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n  begin\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select new_status || '->' || old_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/\ncreate or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n  begin\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select new_status || '->' || old_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/\ncreate or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n  begin\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select new_status || '->' || old_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/\ncreate or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n  begin\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select new_status || '->' || old_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/\ncreate or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n  begin\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select new_status || '->' || old_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/\ncreate or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n  begin\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select new_status || '->' || old_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/\ncreate or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n  begin\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select new_status || '->' || old_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/\ncreate or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n  begin\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select old_status || '->' || new_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/\ncreate or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n  begin\n    update shop_orders set status = upper(p_status) where order_id = p_order_id;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select new_status || '->' || old_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

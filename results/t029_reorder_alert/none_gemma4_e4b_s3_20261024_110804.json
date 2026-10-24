@@ -1,0 +1,89 @@
+{
+  "task": "t029_reorder_alert",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "STOCK_COUNT_API"
+  ],
+  "buggy_objects": [
+    "REORDER_RULES"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 781,
+  "wall_seconds": 73.24,
+  "timestamp": "2026-10-24T11:08:04",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 781,
+      "output_tokens": 535,
+      "seconds": 33.68,
+      "edited_objects": [
+        "STOCK_COUNT_API"
+      ],
+      "cause": "The logic to check for reorder needs to be implemented, likely in a procedure that calls record_count, but since only stock_count_api is provided, I must assume a missing procedure or modify existing ones to handle the reorder logic based on the bug report's implication. Since the provided code only has record_count and open_requests, and the tests imply a reorder check happens after recording the count, I must assume a missing procedure that uses record_count and checks the condition. Given the constraints, I will add a procedure to stock_count_api that performs the reorder check, as the existing ones don't perform this logic.",
+      "candidate": "create or replace package body stock_count_api as\n  procedure record_count(p_sku in varchar2, p_counted in number) is\n  begin\n    update inventory_levels set on_hand = p_counted where sku = p_sku;\n  end record_count;\n\n  function open_requests(p_sku in varchar2) return number is\n    l_count number;\n  begin\n    select count(*) into l_count from reorder_requests where sku = p_sku;\n    return l_count;\n  end open_requests;\n\n  -- Added procedure to handle reorder logic based on the bug report.\n  -- This assumes inventory_levels has a reorder_point column and that\n  -- this procedure is called after record_count.\n  procedure process_reorder(p_sku in varchar2) is\n    v_on_hand inventory_levels.on_hand%TYPE;\n    v_reorder_point inventory_levels.reorder_point%TYPE;\n  begin\n    select on_hand, reorder_point into v_on_hand, v_reorder_point\n    from inventory_levels\n    where sku = p_sku;\n\n    -- Reorder if on_hand is less than or equal to reorder_point\n    if v_on_hand <= v_reorder_point then\n      -- Logic to create a reorder request (mocked here as a simple insert)\n      insert into reorder_requests (sku, requested_qty, request_date)\n      values (p_sku, 10, sysdate) -- Assuming a default quantity of 10 for testing purposes\n      ;\n    end if;\n  end process_reorder;\n\nend stock_count_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY STOCK_COUNT_API line 28, col 57: PL/SQL: ORA-00904: \"REQUEST_DATE\": invalid identifier",
+        "PACKAGE BODY STOCK_COUNT_API line 28, col 7: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1404,
+      "output_tokens": 417,
+      "seconds": 16.08,
+      "edited_objects": [
+        "STOCK_COUNT_API"
+      ],
+      "cause": "The column REQUEST_DATE does not exist in the reorder_requests table, causing ORA-00904.",
+      "candidate": "create or replace package body stock_count_api as\n  procedure record_count(p_sku in varchar2, p_counted in number) is\n  begin\n    update inventory_levels set on_hand = p_counted where sku = p_sku;\n  end record_count;\n\n  function open_requests(p_sku in varchar2) return number is\n    l_count number;\n  begin\n    select count(*) into l_count from reorder_requests where sku = p_sku;\n    return l_count;\n  end open_requests;\n\n  -- Added procedure to handle reorder logic based on the bug report.\n  -- This assumes inventory_levels has a reorder_point column and that\n  -- this procedure is called after record_count.\n  procedure process_reorder(p_sku in varchar2) is\n    v_on_hand inventory_levels.on_hand%TYPE;\n    v_reorder_point inventory_levels.reorder_point%TYPE;\n  begin\n    select on_hand, reorder_point into v_on_hand, v_reorder_point\n    from inventory_levels\n    where sku = p_sku;\n\n    -- Reorder if on_hand is less than or equal to reorder_point\n    if v_on_hand <= v_reorder_point then\n      -- Logic to create a reorder request (mocked here as a simple insert)\n      insert into reorder_requests (sku, requested_qty)\n      values (p_sku, 10) -- Removed request_date to match assumed table structure\n      ;\n    end if;\n  end process_reorder;\n\nend stock_count_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY STOCK_COUNT_API line 28, col 42: PL/SQL: ORA-00904: \"REQUESTED_QTY\": invalid identifier",
+        "PACKAGE BODY STOCK_COUNT_API line 28, col 7: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1910,
+      "output_tokens": 412,
+      "seconds": 17.17,
+      "edited_objects": [
+        "STOCK_COUNT_API"
+      ],
+      "cause": "The column REQUESTED_QTY does not exist in the reorder_requests table, causing ORA-00904.",
+      "candidate": "create or replace package body stock_count_api as\n  procedure record_count(p_sku in varchar2, p_counted in number) is\n  begin\n    update inventory_levels set on_hand = p_counted where sku = p_sku;\n  end record_count;\n\n  function open_requests(p_sku in varchar2) return number is\n    l_count number;\n  begin\n    select count(*) into l_count from reorder_requests where sku = p_sku;\n    return l_count;\n  end open_requests;\n\n  -- Added procedure to handle reorder logic based on the bug report.\n  -- This assumes inventory_levels has a reorder_point column and that\n  -- this procedure is called after record_count.\n  procedure process_reorder(p_sku in varchar2) is\n    v_on_hand inventory_levels.on_hand%TYPE;\n    v_reorder_point inventory_levels.reorder_point%TYPE;\n  begin\n    select on_hand, reorder_point into v_on_hand, v_reorder_point\n    from inventory_levels\n    where sku = p_sku;\n\n    -- Reorder if on_hand is less than or equal to reorder_point\n    if v_on_hand <= v_reorder_point then\n      -- Logic to create a reorder request (mocked here as a simple insert)\n      insert into reorder_requests (sku)\n      values (p_sku) -- Only inserting SKU as other columns are unknown/causing errors\n      ;\n    end if;\n  end process_reorder;\n\nend stock_count_api;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

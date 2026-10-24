@@ -1,0 +1,84 @@
+{
+  "task": "t029_reorder_alert",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "REORDER_RULES",
+      "task": "t029_reorder_alert",
+      "score": 0.9707
+    },
+    {
+      "name": "INVENTORY_LEVELS_AU",
+      "task": "t029_reorder_alert",
+      "score": 0.8693
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.8197
+    },
+    {
+      "name": "WAREHOUSE_API",
+      "task": "t013_stock_moves",
+      "score": 0.7562
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "STOCK_COUNT_API",
+    "REORDER_RULES",
+    "INVENTORY_LEVELS_AU",
+    "T005_ORDERS_API",
+    "WAREHOUSE_API"
+  ],
+  "buggy_objects": [
+    "REORDER_RULES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "INVENTORY_LEVELS_AU"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1764,
+  "wall_seconds": 25.42,
+  "timestamp": "2026-10-24T11:09:37",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1764,
+      "output_tokens": 235,
+      "seconds": 23.2,
+      "edited_objects": [
+        "INVENTORY_LEVELS_AU"
+      ],
+      "cause": "The trigger inventory_levels_au only inserts a reorder request when the stock crosses *into* the reorder zone, failing when stock lands exactly on the reorder point.",
+      "candidate": "create or replace trigger inventory_levels_au\nafter update of on_hand on inventory_levels\nfor each row\nbegin\n  -- Raises one reorder request when an item falls to or below its reorder point,\n  -- and was previously above it, or if it was already below/at and the count changed.\n  if reorder_rules.needs_reorder(:new.on_hand, :new.reorder_point)\n     and not reorder_rules.needs_reorder(:old.on_hand, :old.reorder_point)\n    or (:new.on_hand <= :new.reorder_point and :old.on_hand > :old.reorder_point) then\n    insert into reorder_requests (sku) values (:new.sku);\n  end if;\nend inventory_levels_au;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

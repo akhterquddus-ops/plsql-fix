@@ -1,0 +1,91 @@
+{
+  "task": "t023_tier_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "PRICING_QUOTE"
+  ],
+  "buggy_objects": [
+    "CUSTOMER_TIERS_V"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 743,
+  "wall_seconds": 98.69,
+  "timestamp": "2026-10-24T10:06:56",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 743,
+      "output_tokens": 664,
+      "seconds": 33.86,
+      "edited_objects": [
+        "PRICING_QUOTE"
+      ],
+      "cause": "The discount percentage is being applied incorrectly, likely due to how the loyalty tier discount is stored or calculated, especially for round numbers.",
+      "candidate": "create or replace package body pricing_quote as\n  function quote(p_customer_id in number, p_amount in number) return number is\n    l_pct customer_tiers_v.discount_pct%type;\n  begin\n    begin\n      select discount_pct into l_pct from customer_tiers_v where customer_id = p_customer_id;\n    exception\n      when no_data_found then\n        l_pct := 0;\n    end;\n    -- Assuming l_pct is stored as a percentage (e.g., 10 for 10%), \n    -- the original calculation (1 - l_pct / 100) is mathematically correct for applying a percentage discount.\n    -- The failure suggests that for round numbers, the discount percentage retrieved might be different from what the test expects, \n    -- or the test expects the discount to be applied differently.\n    -- Given the test failures (e.g., expected 190 for 200 with silver tier, actual 200), \n    -- it implies the discount percentage for silver tier is 10% (200 * 0.9 = 180, but test expects 190, so discount is 5%? No, 200 - 190 = 10 discount, 10/200 = 5%).\n    -- If the test expects 190 for 200, the discount is 5%.\n    -- If the test expects 180 for 200, the discount is 10%.\n    -- The bug report says \"Some customers get a smaller discount than their loyalty tier promises.\"\n    -- Let's assume the discount percentage stored in customer_tiers_v is already a decimal (e.g., 0.10 for 10%) instead of a whole number percentage (e.g., 10).\n    -- If l_pct is a decimal (0.10), the formula should be p_amount * (1 - l_pct).\n    -- If l_pct is a whole number percentage (10), the formula is p_amount * (1 - l_pct / 100).\n    -- Since the original code used l_pct / 100, it assumes l_pct is a whole number percentage.\n    -- If the tests fail, it suggests the stored value is not what the calculation expects.\n    -- Let's change the calculation to assume l_pct is already a decimal fraction (0.05, 0.10) to see if that resolves the discrepancy, \n    -- as this is a common source of percentage calculation bugs when data types are ambiguous.\n    return round(p_amount * (1 - l_pct), 2);\n  end quote;\nend pricing_quote;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 3,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1796,
+      "output_tokens": 668,
+      "seconds": 35.02,
+      "edited_objects": [
+        "PRICING_QUOTE"
+      ],
+      "cause": "The calculation for applying the discount is incorrect, leading to negative or wrong results, likely because the discount percentage (l_pct) is being misinterpreted or applied incorrectly based on the test expectations.",
+      "candidate": "create or replace package body pricing_quote as\n  function quote(p_customer_id in number, p_amount in number) return number is\n    l_pct customer_tiers_v.discount_pct%type;\n  begin\n    begin\n      select discount_pct into l_pct from customer_tiers_v where customer_id = p_customer_id;\n    exception\n      when no_data_found then\n        l_pct := 0;\n    end;\n    -- Based on the test failures:\n    -- Test 1: Expected 190 for 200 (5% discount). Original code yielded 200 (0% discount if l_pct=0).\n    -- Test 2: Expected 180 for 200 (10% discount). Original code yielded 190 (5% discount if l_pct=5).\n    -- Test 3: Expected 190 for 200 (5% discount). Original code yielded -800 (which implies l_pct > 100).\n    -- The original code used l_pct / 100. If we assume the tests imply that the discount percentage is stored as a whole number (e.g., 5 for 5%, 10 for 10%), \n    -- the original formula was correct, but the test data/expectations might be inconsistent with the stored data.\n    -- However, the failure in Test 2 (Actual: -800) strongly suggests l_pct is much larger than 100, or the formula is wrong.\n    -- If we assume l_pct is stored as a percentage (e.g., 10 for 10%), and the test expects 180 (10% off), the original formula should work if l_pct=10.\n    -- If the test expects 190 (5% off), l_pct should be 5.\n    -- The only way to fix this robustly without seeing customer_tiers_v is to assume the discount percentage is stored as a decimal fraction (0.05, 0.10) AND that the original code was flawed by dividing by 100 when it shouldn't have.\n    -- Let's revert to the original structure but ensure the calculation is correct for standard percentage application, assuming l_pct is a whole number percentage (e.g., 5 for 5%).\n    -- The original code: return round(p_amount * (1 - l_pct / 100), 2);\n    -- If this fails, it implies l_pct is NOT a whole number percentage, but a decimal fraction.\n    return round(p_amount * (1 - l_pct), 2);\n  end quote;\nend pricing_quote;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 3,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2852,
+      "output_tokens": 384,
+      "seconds": 23.15,
+      "edited_objects": [
+        "PRICING_QUOTE"
+      ],
+      "cause": "The discount percentage (l_pct) is being interpreted incorrectly in the calculation, leading to incorrect results, specifically when the discount is applied as a percentage vs. a fractional value.",
+      "candidate": "create or replace package body pricing_quote as\n  function quote(p_customer_id in number, p_amount in number) return number is\n    l_pct customer_tiers_v.discount_pct%type;\n  begin\n    begin\n      select discount_pct into l_pct from customer_tiers_v where customer_id = p_customer_id;\n    exception\n      when no_data_found then\n        l_pct := 0;\n    end;\n    -- Reverting to the original logic (l_pct / 100) as it is the standard way to apply a percentage stored as a whole number (e.g., 10 for 10%).\n    -- The previous attempts failed because the test expectations (190 for 200, 180 for 200) imply specific discount rates (5% and 10% respectively), \n    -- and the failure in Test 2 (Actual: -800) strongly suggests l_pct is being read as a very large number, which happens if the data type of l_pct is numeric and the stored value is large, or if the division is somehow resulting in a large multiplier.\n    -- Since the original code was mathematically correct for whole number percentages, we restore it, assuming the issue was a transient state or a misunderstanding of the data type in the previous attempts.\n    return round(p_amount * (1 - l_pct / 100), 2);\n  end quote;\nend pricing_quote;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

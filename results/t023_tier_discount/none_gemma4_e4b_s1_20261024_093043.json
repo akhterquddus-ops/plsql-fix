@@ -1,0 +1,86 @@
+{
+  "task": "t023_tier_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "PRICING_QUOTE"
+  ],
+  "buggy_objects": [
+    "CUSTOMER_TIERS_V"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 744,
+  "wall_seconds": 62.64,
+  "timestamp": "2026-10-24T09:30:43",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 744,
+      "output_tokens": 175,
+      "seconds": 14.69,
+      "edited_objects": [
+        "PRICING_QUOTE"
+      ],
+      "cause": "The discount percentage retrieved from customer_tiers_v is being incorrectly applied due to rounding in the final calculation.",
+      "candidate": "create or replace package body pricing_quote as\n  function quote(p_customer_id in number, p_amount in number) return number is\n    l_pct customer_tiers_v.discount_pct%type;\n  begin\n    begin\n      select discount_pct into l_pct from customer_tiers_v where customer_id = p_customer_id;\n    exception\n      when no_data_found then\n        l_pct := 0;\n    end;\n    return round(p_amount * (1 - l_pct / 100), 2);\n  end quote;\nend pricing_quote;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 972,
+      "output_tokens": 210,
+      "seconds": 8.63,
+      "edited_objects": [
+        "PRICING_QUOTE"
+      ],
+      "cause": "The discount percentage is being applied incorrectly, likely due to how the discount is calculated or how the input data (implied by test failures) interacts with the rounding.",
+      "candidate": "create or replace package body pricing_quote as\n  function quote(p_customer_id in number, p_amount in number) return number is\n    l_pct customer_tiers_v.discount_pct%type;\n    l_discount_factor NUMBER;\n  begin\n    begin\n      select discount_pct into l_pct from customer_tiers_v where customer_id = p_customer_id;\n    exception\n      when no_data_found then\n        l_pct := 0;\n    end;\n    l_discount_factor := 1 - (l_pct / 100);\n    return round(p_amount * l_discount_factor, 2);\n  end quote;\nend pricing_quote;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1482,
+      "output_tokens": 683,
+      "seconds": 32.81,
+      "edited_objects": [
+        "PRICING_QUOTE"
+      ],
+      "cause": "The discount percentage retrieved from customer_tiers_v is likely stored as a percentage value (e.g., 10 for 10%), but the test expectations suggest the discount should be applied differently or the stored value is not what is expected for the calculation to yield 190/180 from 200.",
+      "candidate": "create or replace package body pricing_quote as\n  function quote(p_customer_id in number, p_amount in number) return number is\n    l_pct customer_tiers_v.discount_pct%type;\n  begin\n    begin\n      select discount_pct into l_pct from customer_tiers_v where customer_id = p_customer_id;\n    exception\n      when no_data_found then\n        l_pct := 0;\n    end;\n    -- Based on the failing tests:\n    -- Test 1: Input 200, Expected 190. Discount = 10. (l_pct/100 = 0.1)\n    -- Test 2: Input 200, Expected 180. Discount = 20. (l_pct/100 = 0.2)\n    -- If l_pct is stored as 10 for silver and 20 for gold, the original formula should work:\n    -- 200 * (1 - 10/100) = 200 * 0.9 = 180. (Fails Test 1: Expected 190)\n    -- 200 * (1 - 20/100) = 200 * 0.8 = 160. (Fails Test 2: Expected 180)\n    --\n    -- The test expectations imply:\n    -- Test 1 (Silver): 200 * (1 - D1) = 190 => 1 - D1 = 0.95 => D1 = 0.05 (5%)\n    -- Test 2 (Gold): 200 * (1 - D2) = 180 => 1 - D2 = 0.90 => D2 = 0.10 (10%)\n    --\n    -- It seems l_pct is stored as a percentage value (e.g., 5 for 5%, 10 for 10%), but the original code divides by 100, which is correct if l_pct is stored as a whole number percentage.\n    -- The only way the original code fails is if l_pct is NOT stored as a whole number percentage, or if the test setup implies a different interpretation.\n    -- Given the failure pattern, let's assume l_pct is stored as a decimal fraction (e.g., 0.05 for 5%) and the original code incorrectly divides it by 100 again.\n    return round(p_amount * (1 - l_pct), 2);\n  end quote;\nend pricing_quote;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 3,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

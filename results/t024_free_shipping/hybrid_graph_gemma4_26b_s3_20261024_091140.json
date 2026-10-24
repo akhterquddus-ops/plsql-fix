@@ -1,0 +1,85 @@
+{
+  "task": "t024_free_shipping",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T009_SHIPPING_PKG",
+      "task": "t009_shipping_weight",
+      "score": 1.0
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6639
+    },
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.5949
+    },
+    {
+      "name": "T009_PARCEL_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.5833
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "SHIPPING_COST",
+    "FREIGHT_CONFIG",
+    "T009_SHIPPING_PKG",
+    "T009_CHECKOUT_API",
+    "T003_FEES",
+    "T009_PARCEL_PKG"
+  ],
+  "buggy_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1775,
+  "wall_seconds": 4.36,
+  "timestamp": "2026-10-24T09:11:40",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1775,
+      "output_tokens": 126,
+      "seconds": 3.88,
+      "edited_objects": [
+        "FREIGHT_CONFIG"
+      ],
+      "cause": "freight_config.c_free_over has an extra zero (50000 instead of 5000)",
+      "candidate": "create or replace package freight_config as\n  -- Shipping settings. Amounts in the shop currency, weights in kg.\n  c_base_fee   constant number := 250;\n  c_fee_per_kg constant number := 40;\n  c_free_over  constant number := 5000;   -- orders above this amount ship free\nend freight_config;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

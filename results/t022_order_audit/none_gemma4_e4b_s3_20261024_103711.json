@@ -1,0 +1,90 @@
+{
+  "task": "t022_order_audit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ORDER_STATUS_API"
+  ],
+  "buggy_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 849,
+  "wall_seconds": 67.48,
+  "timestamp": "2026-10-24T10:37:11",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 849,
+      "output_tokens": 406,
+      "seconds": 26.37,
+      "edited_objects": [
+        "ORDER_STATUS_API"
+      ],
+      "cause": "The set_status procedure does not log the status change, so last_change always reads the last recorded log entry, which might be incorrect or missing the necessary context for the expected 'OLD->NEW' format.",
+      "candidate": "create or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n    v_old_status varchar2(50);\n  begin\n    -- Get the current status before updating\n    select status\n      into v_old_status\n      from shop_orders\n     where order_id = p_order_id;\n\n    -- Only log if the status is actually changing\n    if upper(v_old_status) <> upper(p_status) then\n      -- Log the change\n      insert into order_status_log (order_id, old_status, new_status, log_date)\n      values (p_order_id, v_old_status, upper(p_status), SYSDATE);\n\n      -- Update the status\n      update shop_orders set status = upper(p_status) where order_id = p_order_id;\n    end if;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select old_status || '->' || new_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY ORDER_STATUS_API line 14, col 71: PL/SQL: ORA-00904: \"LOG_DATE\": invalid identifier",
+        "PACKAGE BODY ORDER_STATUS_API line 14, col 7: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1343,
+      "output_tokens": 386,
+      "seconds": 14.65,
+      "edited_objects": [
+        "ORDER_STATUS_API"
+      ],
+      "cause": "The INSERT statement in set_status references a column 'LOG_DATE' in order_status_log which does not exist in the provided schema context.",
+      "candidate": "create or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n    v_old_status varchar2(50);\n  begin\n    -- Get the current status before updating\n    select status\n      into v_old_status\n      from shop_orders\n     where order_id = p_order_id;\n\n    -- Only log if the status is actually changing\n    if upper(v_old_status) <> upper(p_status) then\n      -- Log the change\n      insert into order_status_log (order_id, old_status, new_status)\n      values (p_order_id, v_old_status, upper(p_status));\n\n      -- Update the status\n      update shop_orders set status = upper(p_status) where order_id = p_order_id;\n    end if;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select old_status || '->' || new_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2033,
+      "output_tokens": 423,
+      "seconds": 19.98,
+      "edited_objects": [
+        "ORDER_STATUS_API"
+      ],
+      "cause": "The logic in set_status is flawed because it only logs the transition from the *current* state to the *new* state, but the tests expect the log to reflect the transition that *just happened* based on the sequence of calls, and the initial state might be implicitly assumed by the test setup.",
+      "candidate": "create or replace package body order_status_api as\n  procedure set_status(p_order_id in number, p_status in varchar2) is\n    v_old_status varchar2(50);\n  begin\n    -- Get the current status before updating\n    select status\n      into v_old_status\n      from shop_orders\n     where order_id = p_order_id;\n\n    -- Only log if the status is actually changing\n    if upper(v_old_status) <> upper(p_status) then\n      -- Log the change: Old status -> New status\n      insert into order_status_log (order_id, old_status, new_status)\n      values (p_order_id, v_old_status, upper(p_status));\n\n      -- Update the status\n      update shop_orders set status = upper(p_status) where order_id = p_order_id;\n    end if;\n  end set_status;\n\n  function last_change(p_order_id in number) return varchar2 is\n    l_change varchar2(25);\n  begin\n    select old_status || '->' || new_status\n      into l_change\n      from order_status_log\n     where order_id = p_order_id\n     order by log_id desc\n     fetch first 1 row only;\n    return l_change;\n  exception\n    when no_data_found then\n      return null;\n  end last_change;\nend order_status_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

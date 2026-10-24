@@ -1,0 +1,60 @@
+{
+  "task": "t024_free_shipping",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "SHIPPING_COST",
+    "FREIGHT_CONFIG"
+  ],
+  "buggy_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 862,
+  "wall_seconds": 16.61,
+  "timestamp": "2026-10-24T10:46:06",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 862,
+      "output_tokens": 128,
+      "seconds": 14.37,
+      "edited_objects": [
+        "FREIGHT_CONFIG"
+      ],
+      "cause": "The threshold for free shipping in FREIGHT_CONFIG is set too high (50000) instead of 5000.",
+      "candidate": "create or replace package freight_config as\n  -- Shipping settings. Amounts in the shop currency, weights in kg.\n  c_base_fee   constant number := 250;\n  c_fee_per_kg constant number := 40;\n  c_free_over  constant number := 5000;   -- orders above this amount ship free\nend freight_config;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

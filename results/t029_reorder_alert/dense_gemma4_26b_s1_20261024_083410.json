@@ -1,0 +1,84 @@
+{
+  "task": "t029_reorder_alert",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "REORDER_RULES",
+      "task": "t029_reorder_alert",
+      "score": 0.7061
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.6998
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.6742
+    },
+    {
+      "name": "ORDER_STATUS_API",
+      "task": "t022_order_audit",
+      "score": 0.668
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "STOCK_COUNT_API",
+    "REORDER_RULES",
+    "T005_ORDERS_API",
+    "T001_ORDERS_API",
+    "ORDER_STATUS_API"
+  ],
+  "buggy_objects": [
+    "REORDER_RULES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "REORDER_RULES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1775,
+  "wall_seconds": 5.56,
+  "timestamp": "2026-10-24T08:34:10",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1775,
+      "output_tokens": 179,
+      "seconds": 5.05,
+      "edited_objects": [
+        "REORDER_RULES"
+      ],
+      "cause": "reorder_rules.needs_reorder used < instead of <=, failing to trigger reorders when stock equals the reorder point.",
+      "candidate": "create or replace package reorder_rules as\n  -- An item is reordered when its stock falls to or below its reorder point.\n  function needs_reorder(p_on_hand in number, p_reorder_point in number) return boolean;\nend reorder_rules;\n/\ncreate or replace package body reorder_rules as\n  function needs_reorder(p_on_hand in number, p_reorder_point in number) return boolean is\n  begin\n    return p_on_hand <= p_reorder_point;\n  end needs_reorder;\nend reorder_rules;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "task": "t022_order_audit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ORDER_STATUS_API",
+    "ORDER_STATUS_LOG",
+    "SHOP_ORDERS",
+    "SHOP_ORDERS_AU"
+  ],
+  "buggy_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1129,
+  "wall_seconds": 4.12,
+  "timestamp": "2026-10-24T09:04:55",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1129,
+      "output_tokens": 135,
+      "seconds": 3.55,
+      "edited_objects": [
+        "SHOP_ORDERS_AU"
+      ],
+      "cause": "shop_orders_au trigger inserts :new.status as old_status and :old.status as new_status",
+      "candidate": "create or replace trigger shop_orders_au\nafter update of status on shop_orders\nfor each row\nwhen (new.status <> old.status)\nbegin\n  -- Keeps a history of every status change of an order.\n  insert into order_status_log (order_id, old_status, new_status)\n  values (:new.order_id, :old.status, :new.status);\nend shop_orders_au;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

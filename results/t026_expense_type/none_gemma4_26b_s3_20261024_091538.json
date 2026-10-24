@@ -1,0 +1,76 @@
+{
+  "task": "t026_expense_type",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "EXPENSE_API"
+  ],
+  "buggy_objects": [
+    "AMOUNT_T"
+  ],
+  "buggy_object_in_context": false,
+  "solved": true,
+  "attempts_used": 2,
+  "fixed_objects": [
+    "EXPENSE_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 719,
+  "wall_seconds": 9.34,
+  "timestamp": "2026-10-24T09:15:38",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 719,
+      "output_tokens": 225,
+      "seconds": 4.73,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "expense_api.claim_total uses amount_t(l.amount, l.rate_to_base).to_base() which likely multiplies instead of dividing or uses an incorrect conversion logic for the provided rate.",
+      "candidate": "create or replace package expense_api as\n  -- Total of an expense claim in the base currency (EUR).\n  function claim_total(p_claim_id in number) return number;\nend expense_api;\n/\ncreate or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      l_total := l_total + (l.amount / l.rate_to_base);\n    end loop;\n    return l_total;\n  end claim_total;\nend expense_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1299,
+      "output_tokens": 201,
+      "seconds": 3.69,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "expense_api.claim_total used division instead of multiplication for the rate_to_base conversion.",
+      "candidate": "create or replace package expense_api as\n  -- Total of an expense claim in the base currency (EUR).\n  function claim_total(p_claim_id in number) return number;\nend expense_api;\n/\ncreate or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      l_total := l_total + (l.amount * l.rate_to_base);\n    end loop;\n    return l_total;\n  end claim_total;\nend expense_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

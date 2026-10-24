@@ -1,0 +1,81 @@
+{
+  "task": "t023_tier_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "PRICING_QUOTE"
+  ],
+  "buggy_objects": [
+    "CUSTOMER_TIERS_V"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 748,
+  "wall_seconds": 151.69,
+  "timestamp": "2026-10-24T09:07:52",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 748,
+      "output_tokens": 7444,
+      "seconds": 128.14,
+      "edited_objects": [
+        "PRICING_QUOTE"
+      ],
+      "cause": "pricing_quote.quote uses a view customer_tiers_v which likely uses a non-inclusive comparison for yearly spend thresholds.",
+      "candidate": "create or replace package body pricing_quote as\n  function quote(p_customer_id in number, p_amount in number) return number is\n    l_pct customer_tiers_v.discount_pct%type;\n  begin\n    begin\n      select discount_pct into l_pct from customer_tiers_v where customer_id = p_customer_id;\n    exception\n      when no_data_found then\n        l_pct := 0;\n    end;\n    return round(p_amount * (1 - l_pct / 100), 2);\n  end quote;\nend pricing_quote;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 7698,
+      "output_tokens": 491,
+      "seconds": 16.63,
+      "edited_objects": [
+        "PRICING_QUOTE"
+      ],
+      "cause": "pricing_quote.quote uses a view customer_tiers_v which likely uses a non-inclusive comparison for yearly spend thresholds.",
+      "candidate": "create or replace package body pricing_quote as\n  function quote(p_customer_id in number, p_amount in number) return number is\n    l_pct customer_tiers_v.discount_pct%type;\n  begin\n    begin\n      select discount_pct into l_pct from customer_tiers_v where customer_id = p_customer_id;\n    exception\n      when no_data_found then\n        l_pct := 0;\n    end;\n    return round(p_amount * (1 - l_pct / 100), 2);\n  end quote;\nend pricing_quote;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 794,
+      "output_tokens": 269,
+      "seconds": 5.44,
+      "edited_objects": [
+        "PRICING_QUOTE"
+      ],
+      "cause": "pricing_quote.quote uses a view customer_tiers_v which likely uses a non-inclusive comparison for yearly spend thresholds.",
+      "candidate": "create or replace package body pricing_quote as\n  function quote(p_customer_id in number, p_amount in number) return number is\n    l_pct customer_tiers_v.discount_pct%type;\n  begin\n    begin\n      -- If the view returns multiple rows due to overlapping tiers, we must select the maximum discount.\n      -- If the view is returning the wrong tier, we might need to adjust the logic, \n      -- but given the constraints, we ensure we pick the best discount available for the customer.\n      select max(discount_pct) into l_pct from customer_tiers_v where customer_id = p_customer_id;\n    exception\n      when no_data_found then\n        l_pct := 0;\n    end;\n    \n    if l_pct is null then\n       l_pct := 0;\n    end if;\n\n    return round(p_amount * (1 - l_pct / 100), 2);\n  end quote;\nend pricing_quote;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

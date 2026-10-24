@@ -1,0 +1,98 @@
+{
+  "task": "t027_new_hire",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ONBOARDING_API",
+    "EMPLOYEE_DIRECTORY_V",
+    "HR_CONTACTS",
+    "HR_PEOPLE"
+  ],
+  "buggy_objects": [
+    "EMPLOYEE_DIRECTORY_IOI"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1125,
+  "wall_seconds": 92.67,
+  "timestamp": "2026-10-24T09:51:57",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1125,
+      "output_tokens": 326,
+      "seconds": 25.98,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The add_hire procedure inserts data into employee_directory_v, which is a view, instead of the underlying table HR_CONTACTS where phone numbers are stored.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into hr_contacts (person_id, email, phone)\n    values (p_person_id, p_email, p_phone);\n    insert into hr_people (person_id, full_name)\n    values (p_person_id, p_name);\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 3
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2062,
+      "output_tokens": 657,
+      "seconds": 40.65,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The add_hire procedure was missing the insertion of the person into hr_people, causing foreign key constraint violations when inserting into hr_contacts.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    -- Ensure the person exists in hr_people first\n    insert into hr_people (person_id, full_name)\n    values (p_person_id, p_name)\n    on conflict (person_id) do nothing; -- Assuming modern Oracle or using MERGE if needed, but for simplicity based on previous attempt, we ensure it exists.\n    -- Since we don't know the exact constraint handling in the test environment, we rely on INSERT/UPDATE logic if the ID might exist, but based on the error, we must ensure hr_people is populated.\n    -- Given the structure, we assume the test setup might not pre-populate hr_people, so we insert it.\n    -- If p_person_id already exists, this will fail unless we use MERGE or check existence.\n    -- For fixing the FK violation, we must ensure hr_people has the record.\n    \n    -- Reverting to simple insert, assuming test setup ensures unique IDs or we handle potential duplicates if necessary.\n    -- The previous attempt inserted into hr_contacts first, which failed because hr_people didn't exist.\n    \n    -- Correct sequence: Insert into hr_people, then insert into hr_contacts.\n    \n    -- 1. Insert/Update hr_people\n    insert into hr_people (person_id, full_name)\n    values (p_person_id, p_name)\n    where not exists (select 1 from hr_people where person_id = p_person_id);\n\n    -- 2. Insert into hr_contacts\n    insert into hr_contacts (person_id, email, phone)\n    values (p_person_id, p_email, p_phone)\n    where not exists (select 1 from hr_contacts where person_id = p_person_id);\n\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY ONBOARDING_API line 8, col 5: PL/SQL: ORA-03048: SQL reserved word 'ON' is not syntactically valid following '...(p_person_id, p_name)\n    '",
+        "PACKAGE BODY ONBOARDING_API line 6, col 5: PL/SQL: SQL Statement ignored",
+        "PACKAGE BODY ONBOARDING_API line 22, col 5: PL/SQL: ORA-03048: SQL reserved word 'WHERE' is not syntactically valid following '...(p_person_id, p_name)\n    '",
+        "PACKAGE BODY ONBOARDING_API line 20, col 5: PL/SQL: SQL Statement ignored",
+        "PACKAGE BODY ONBOARDING_API line 27, col 5: PL/SQL: ORA-03048: SQL reserved word 'WHERE' is not syntactically valid following '..., p_email, p_phone)\n    '",
+        "PACKAGE BODY ONBOARDING_API line 25, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2987,
+      "output_tokens": 413,
+      "seconds": 19.7,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The use of 'ON CONFLICT' and 'WHERE NOT EXISTS' clauses within INSERT statements caused compilation errors due to SQL syntax limitations in PL/SQL context for simple inserts.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    -- 1. Insert into hr_people, handling potential duplicates by checking existence first\n    insert into hr_people (person_id, full_name)\n    values (p_person_id, p_name)\n    where not exists (select 1 from hr_people where person_id = p_person_id);\n\n    -- 2. Insert into hr_contacts, handling potential duplicates by checking existence first\n    insert into hr_contacts (person_id, email, phone)\n    values (p_person_id, p_email, p_phone)\n    where not exists (select 1 from hr_contacts where person_id = p_person_id);\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY ONBOARDING_API line 8, col 5: PL/SQL: ORA-03048: SQL reserved word 'WHERE' is not syntactically valid following '...(p_person_id, p_name)\n    '",
+        "PACKAGE BODY ONBOARDING_API line 6, col 5: PL/SQL: SQL Statement ignored",
+        "PACKAGE BODY ONBOARDING_API line 13, col 5: PL/SQL: ORA-03048: SQL reserved word 'WHERE' is not syntactically valid following '..., p_email, p_phone)\n    '",
+        "PACKAGE BODY ONBOARDING_API line 11, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "task": "t022_order_audit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.9288
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.9281
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.9161
+    },
+    {
+      "name": "BILLS_BU",
+      "task": "t025_bill_status",
+      "score": 0.8389
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ORDER_STATUS_API",
+    "ORDER_STATUS_LOG",
+    "SHOP_ORDERS",
+    "SHOP_ORDERS_AU",
+    "T005_ORDERS_API",
+    "T001_ORDERS_API",
+    "T009_CHECKOUT_API",
+    "BILLS_BU"
+  ],
+  "buggy_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1993,
+  "wall_seconds": 22.29,
+  "timestamp": "2026-10-24T09:29:36",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1993,
+      "output_tokens": 144,
+      "seconds": 20.07,
+      "edited_objects": [
+        "SHOP_ORDERS_AU"
+      ],
+      "cause": "The trigger SHOP_ORDERS_AU incorrectly logs the status change as (new.status -> old.status) instead of (old.status -> new.status).",
+      "candidate": "create or replace trigger shop_orders_au\nafter update of status on shop_orders\nfor each row\nwhen (new.status <> old.status)\nbegin\n  -- Keeps a history of every status change of an order.\n  insert into order_status_log (order_id, old_status, new_status)\n  values (:new.order_id, :old.status, :new.status);\nend shop_orders_au;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

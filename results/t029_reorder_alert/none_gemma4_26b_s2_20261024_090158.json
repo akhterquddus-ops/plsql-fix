@@ -1,0 +1,59 @@
+{
+  "task": "t029_reorder_alert",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "STOCK_COUNT_API"
+  ],
+  "buggy_objects": [
+    "REORDER_RULES"
+  ],
+  "buggy_object_in_context": false,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "STOCK_COUNT_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 787,
+  "wall_seconds": 7.01,
+  "timestamp": "2026-10-24T09:01:58",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 787,
+      "output_tokens": 317,
+      "seconds": 6.47,
+      "edited_objects": [
+        "STOCK_COUNT_API"
+      ],
+      "cause": "stock_count_api.record_count does not check if a reorder request needs to be created when stock reaches or falls below the reorder point.",
+      "candidate": "create or replace package body stock_count_api as\n  procedure record_count(p_sku in varchar2, p_counted in number) is\n  begin\n    update inventory_levels \n    set on_hand = p_counted \n    where sku = p_sku;\n\n    declare\n      l_reorder_point number;\n      l_existing_requests number;\n    begin\n      select reorder_point into l_reorder_point \n      from inventory_levels \n      where sku = p_sku;\n\n      select count(*) into l_existing_requests \n      from reorder_requests \n      where sku = p_sku;\n\n      if p_counted <= l_reorder_point and l_existing_requests = 0 then\n        insert into reorder_requests (sku) values (p_sku);\n      end if;\n    end;\n  end record_count;\n\n  function open_requests(p_sku in varchar2) return number is\n    l_count number;\n  begin\n    select count(*) into l_count from reorder_requests where sku = p_sku;\n    return l_count;\n  end open_requests;\nend stock_count_api;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

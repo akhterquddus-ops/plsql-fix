@@ -1,0 +1,86 @@
+{
+  "task": "t027_new_hire",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ONBOARDING_API"
+  ],
+  "buggy_objects": [
+    "EMPLOYEE_DIRECTORY_IOI"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 920,
+  "wall_seconds": 92.94,
+  "timestamp": "2026-10-24T09:47:56",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 920,
+      "output_tokens": 309,
+      "seconds": 22.01,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The procedure add_hire is missing a COMMIT statement after inserting into employee_directory_v, causing subsequent reads to not see the inserted data in the test environment.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone)\n    values (p_person_id, p_name, p_email, p_phone);\n    commit;\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1884,
+      "output_tokens": 304,
+      "seconds": 19.4,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The test framework likely rolls back transactions, and the procedure add_hire needs to be modified to not commit, allowing the test framework to manage the transaction state.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone)\n    values (p_person_id, p_name, p_email, p_phone);\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 3
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 3177,
+      "output_tokens": 576,
+      "seconds": 45.04,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The test environment is failing due to unique constraint violations on PERSON_ID when calling add_hire, indicating that the underlying table/trigger logic expects a different mechanism or that the test setup is flawed, but to satisfy the immediate requirement of making the code work with the existing structure, we must assume the issue is related to how the data is being inserted/read, and since the previous fix (removing COMMIT) was based on test framework warnings, we must revert to a state where the insert happens, but we must also address the fact that the tests are failing due to constraint violations, which suggests the test setup is creating duplicate IDs. However, since I can only change the provided code, and the error points to a trigger/constraint violation on PERSON_ID, I will assume the issue is that the procedure is not supposed to be inserting directly into employee_directory_v but perhaps calling another function/procedure that handles the ID generation/check, but based on the provided code, the only change that might mitigate this if the test framework is somehow re-running setup is to ensure the insert is atomic and doesn't rely on external state management that the test framework is breaking. Given the constraints, I will revert the COMMIT, as the previous failure was related to visibility, and the current failure is related to constraints, which usually means the test setup is faulty, but I must provide a code fix. I will revert the commit, as the test framework warnings suggest that explicit commits are problematic for utPLSQL.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone)\n    values (p_person_id, p_name, p_email, p_phone);\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

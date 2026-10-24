@@ -1,0 +1,84 @@
+{
+  "task": "t022_order_audit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "SHOP_ORDERS_AU",
+      "task": "t022_order_audit",
+      "score": 1.0
+    },
+    {
+      "name": "ORDER_STATUS_LOG",
+      "task": "t022_order_audit",
+      "score": 0.8396
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.8053
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.7705
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ORDER_STATUS_API",
+    "SHOP_ORDERS_AU",
+    "ORDER_STATUS_LOG",
+    "T005_ORDERS_API",
+    "T001_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1569,
+  "wall_seconds": 4.87,
+  "timestamp": "2026-10-24T09:04:48",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1569,
+      "output_tokens": 140,
+      "seconds": 4.39,
+      "edited_objects": [
+        "SHOP_ORDERS_AU"
+      ],
+      "cause": "shop_orders_au trigger inserts :new.status into old_status and :old.status into new_status, which is reversed.",
+      "candidate": "create or replace trigger shop_orders_au\nafter update of status on shop_orders\nfor each row\nwhen (new.status <> old.status)\nbegin\n  -- Keeps a history of every status change of an order.\n  insert into order_status_log (order_id, old_status, new_status)\n  values (:new.order_id, :old.status, :new.status);\nend shop_orders_au;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "task": "t024_free_shipping",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T009_SHIPPING_PKG",
+      "task": "t009_shipping_weight",
+      "score": 1.0
+    },
+    {
+      "name": "FREIGHT_CONFIG",
+      "task": "t024_free_shipping",
+      "score": 0.8426
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6669
+    },
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.5964
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "SHIPPING_COST",
+    "T009_SHIPPING_PKG",
+    "FREIGHT_CONFIG",
+    "T009_CHECKOUT_API",
+    "T003_FEES"
+  ],
+  "buggy_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1544,
+  "wall_seconds": 37.36,
+  "timestamp": "2026-10-24T10:12:04",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1544,
+      "output_tokens": 169,
+      "seconds": 18.07,
+      "edited_objects": [
+        "SHIPPING_COST"
+      ],
+      "cause": "The c_free_over constant in freight_config is set to 50000 instead of 5000, causing orders over 5000 to be incorrectly charged shipping.",
+      "candidate": "create or replace package body shipping_cost as\n  function cost_for(p_order_total in number, p_weight_kg in number) return number is\n  begin\n    if p_order_total > freight_config.c_free_over then\n      return 0;\n    end if;\n    return freight_config.c_base_fee + ceil(p_weight_kg) * freight_config.c_fee_per_kg;\n  end cost_for;\nend shipping_cost;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1766,
+      "output_tokens": 169,
+      "seconds": 6.75,
+      "edited_objects": [
+        "SHIPPING_COST"
+      ],
+      "cause": "The c_free_over constant in freight_config is set to 50000 instead of 5000, causing orders over 5000 to be incorrectly charged shipping.",
+      "candidate": "create or replace package body shipping_cost as\n  function cost_for(p_order_total in number, p_weight_kg in number) return number is\n  begin\n    if p_order_total > freight_config.c_free_over then\n      return 0;\n    end if;\n    return freight_config.c_base_fee + ceil(p_weight_kg) * freight_config.c_fee_per_kg;\n  end cost_for;\nend shipping_cost;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1988,
+      "output_tokens": 169,
+      "seconds": 6.38,
+      "edited_objects": [
+        "SHIPPING_COST"
+      ],
+      "cause": "The c_free_over constant in freight_config is set to 50000 instead of 5000, causing orders over 5000 to be incorrectly charged shipping.",
+      "candidate": "create or replace package body shipping_cost as\n  function cost_for(p_order_total in number, p_weight_kg in number) return number is\n  begin\n    if p_order_total > freight_config.c_free_over then\n      return 0;\n    end if;\n    return freight_config.c_base_fee + ceil(p_weight_kg) * freight_config.c_fee_per_kg;\n  end cost_for;\nend shipping_cost;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

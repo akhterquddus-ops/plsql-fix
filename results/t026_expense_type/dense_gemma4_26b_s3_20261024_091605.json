@@ -1,0 +1,84 @@
+{
+  "task": "t026_expense_type",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T004_LOANS_API",
+      "task": "t004_late_fee",
+      "score": 0.6457
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.6425
+    },
+    {
+      "name": "T008_PAYMENTS_API",
+      "task": "t008_overpayment",
+      "score": 0.6377
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6342
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "EXPENSE_API",
+    "T004_LOANS_API",
+    "T001_ORDERS_API",
+    "T008_PAYMENTS_API",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "AMOUNT_T"
+  ],
+  "buggy_object_in_context": false,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "EXPENSE_API"
+  ],
+  "localized": false,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1715,
+  "wall_seconds": 7.34,
+  "timestamp": "2026-10-24T09:16:05",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1715,
+      "output_tokens": 241,
+      "seconds": 6.55,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "expense_api.claim_total incorrectly uses amount_t(l.amount, l.rate_to_base).to_base() which likely multiplies the amount by the rate twice or uses an incorrect constructor logic, whereas the requirement is to convert the amount to base currency using the provided rate.",
+      "candidate": "create or replace package expense_api as\n  -- Total of an expense claim in the base currency (EUR).\n  function claim_total(p_claim_id in number) return number;\nend expense_api;\n/\ncreate or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      l_total := l_total + (l.amount * l.rate_to_base);\n    end loop;\n    return l_total;\n  end claim_total;\nend expense_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

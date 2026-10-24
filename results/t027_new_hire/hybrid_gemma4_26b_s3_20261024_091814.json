@@ -1,0 +1,84 @@
+{
+  "task": "t027_new_hire",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "EMPLOYEE_DIRECTORY_V",
+      "task": "t027_new_hire",
+      "score": 0.9012
+    },
+    {
+      "name": "EMPLOYEE_DIRECTORY_IOI",
+      "task": "t027_new_hire",
+      "score": 0.8926
+    },
+    {
+      "name": "WAREHOUSE_API",
+      "task": "t013_stock_moves",
+      "score": 0.8069
+    },
+    {
+      "name": "FORMAT_PHONE",
+      "task": "t020_phone_format",
+      "score": 0.8062
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ONBOARDING_API",
+    "EMPLOYEE_DIRECTORY_V",
+    "EMPLOYEE_DIRECTORY_IOI",
+    "WAREHOUSE_API",
+    "FORMAT_PHONE"
+  ],
+  "buggy_objects": [
+    "EMPLOYEE_DIRECTORY_IOI"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "EMPLOYEE_DIRECTORY_IOI"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1708,
+  "wall_seconds": 5.24,
+  "timestamp": "2026-10-24T09:18:14",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1708,
+      "output_tokens": 140,
+      "seconds": 4.74,
+      "edited_objects": [
+        "EMPLOYEE_DIRECTORY_IOI"
+      ],
+      "cause": "employee_directory_ioi trigger fails to insert the phone number into hr_contacts table.",
+      "candidate": "create or replace trigger employee_directory_ioi\ninstead of insert on employee_directory_v\nfor each row\nbegin\n  -- New people are added through the directory view.\n  insert into hr_people (person_id, full_name) values (:new.person_id, :new.full_name);\n  insert into hr_contacts (person_id, email, phone) values (:new.person_id, :new.email, :new.phone);\nend employee_directory_ioi;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

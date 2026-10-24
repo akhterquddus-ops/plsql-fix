@@ -1,0 +1,93 @@
+{
+  "task": "t027_new_hire",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ONBOARDING_API",
+    "EMPLOYEE_DIRECTORY_V",
+    "HR_CONTACTS",
+    "HR_PEOPLE"
+  ],
+  "buggy_objects": [
+    "EMPLOYEE_DIRECTORY_IOI"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1125,
+  "wall_seconds": 85.94,
+  "timestamp": "2026-10-24T11:00:08",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1125,
+      "output_tokens": 649,
+      "seconds": 43.69,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The add_hire procedure inserts data directly into employee_directory_v, which is a view, instead of the underlying tables (HR_CONTACTS) where the data should reside.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    -- Insert into HR_PEOPLE if not present (assuming p_name is for HR_PEOPLE)\n    -- Although the original code didn't handle HR_PEOPLE insertion, the bug is that it bypasses HR_CONTACTS.\n    -- We must insert into HR_CONTACTS to populate the view correctly.\n    insert into hr_contacts (person_id, email, phone)\n    values (p_person_id, p_email, p_phone)\n    on conflict (person_id) do update; -- Using MERGE/UPSERT logic conceptually, but sticking to simple insert/update if possible based on schema.\n    -- Since HR_CONTACTS has person_id as PK, we should use MERGE or check existence.\n    -- Given the context of onboarding, we assume the record might already exist or we are creating it.\n    -- A simple INSERT might fail if the person_id exists. Let's use MERGE for robustness, or assume the test setup ensures it's new.\n    -- Given the original code used INSERT, we'll use MERGE to simulate the intended behavior of adding/updating contact info.\n    merge into hr_contacts\n    using (SELECT p_person_id as person_id, p_email as email, p_phone as phone FROM dual)\n    on (hr_contacts.person_id = p_person_id)\n    when not match then\n      insert into hr_contacts (person_id, email, phone)\n      values (p_person_id, p_email, p_phone)\n    when match then\n      update hr_contacts\n      set email = p_email, phone = p_phone\n      where hr_contacts.person_id = p_person_id;\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY ONBOARDING_API line 10, col 5: PL/SQL: ORA-03048: SQL reserved word 'ON' is not syntactically valid following '..., p_email, p_phone)\n    '",
+        "PACKAGE BODY ONBOARDING_API line 8, col 5: PL/SQL: SQL Statement ignored",
+        "PACKAGE BODY ONBOARDING_API line 18, col 14: PL/SQL: ORA-02000: missing MATCHED keyword",
+        "PACKAGE BODY ONBOARDING_API line 15, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1938,
+      "output_tokens": 406,
+      "seconds": 17.8,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The MERGE statement syntax used in the previous attempt was incorrect for Oracle PL/SQL, leading to compilation errors.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    -- Use MERGE statement correctly to insert or update contact information in HR_CONTACTS\n    merge into hr_contacts\n    using (SELECT p_person_id as person_id, p_email as email, p_phone as phone FROM dual)\n    on (hr_contacts.person_id = p_person_id)\n    when not match then\n      insert into hr_contacts (person_id, email, phone)\n      values (p_person_id, p_email, p_phone)\n    when match then\n      update hr_contacts\n      set email = p_email, phone = p_phone\n      where hr_contacts.person_id = p_person_id;\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY ONBOARDING_API line 9, col 14: PL/SQL: ORA-02000: missing MATCHED keyword",
+        "PACKAGE BODY ONBOARDING_API line 6, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2427,
+      "output_tokens": 419,
+      "seconds": 18.27,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The MERGE statement syntax was still incorrect, specifically missing the 'WHEN MATCHED THEN UPDATE' structure required by Oracle.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    -- Use MERGE statement correctly to insert or update contact information in HR_CONTACTS\n    merge into hr_contacts\n    using (SELECT p_person_id as person_id, p_email as email, p_phone as phone FROM dual)\n    on (hr_contacts.person_id = p_person_id)\n    when not match then\n      insert into hr_contacts (person_id, email, phone)\n      values (p_person_id, p_email, p_phone)\n    when match then\n      update hr_contacts\n      set email = p_email, phone = p_phone\n      where hr_contacts.person_id = hr_contacts.person_id; -- Corrected update clause to reference the target table\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY ONBOARDING_API line 9, col 14: PL/SQL: ORA-02000: missing MATCHED keyword",
+        "PACKAGE BODY ONBOARDING_API line 6, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

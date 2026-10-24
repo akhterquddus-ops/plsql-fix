@@ -1,0 +1,106 @@
+{
+  "task": "t027_new_hire",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "WAREHOUSE_API",
+      "task": "t013_stock_moves",
+      "score": 0.6479
+    },
+    {
+      "name": "FORMAT_PHONE",
+      "task": "t020_phone_format",
+      "score": 0.6254
+    },
+    {
+      "name": "EMPLOYEE_DIRECTORY_IOI",
+      "task": "t027_new_hire",
+      "score": 0.6129
+    },
+    {
+      "name": "ORDER_STATUS_API",
+      "task": "t022_order_audit",
+      "score": 0.6055
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ONBOARDING_API",
+    "WAREHOUSE_API",
+    "FORMAT_PHONE",
+    "EMPLOYEE_DIRECTORY_IOI",
+    "ORDER_STATUS_API"
+  ],
+  "buggy_objects": [
+    "EMPLOYEE_DIRECTORY_IOI"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 1938,
+  "wall_seconds": 71.14,
+  "timestamp": "2026-10-24T09:49:30",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1938,
+      "output_tokens": 299,
+      "seconds": 33.69,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The add_hire procedure inserts the raw phone number without formatting it, while the tests expect a formatted phone number.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone)\n    values (p_person_id, p_name, p_email, format_phone(p_phone));\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 2540,
+      "output_tokens": 311,
+      "seconds": 16.31,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The employee_directory_ioi trigger inserts into hr_contacts, but the phone number is not being saved anywhere accessible by phone_of, as the trigger only handles email.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone)\n    values (p_person_id, p_name, p_email, format_phone(p_phone));\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2904,
+      "output_tokens": 334,
+      "seconds": 14.81,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The employee_directory_ioi trigger only inserts email into hr_contacts, and the phone number is not being persisted or retrieved correctly because the trigger doesn't handle phone numbers, and the view/table structure might be causing issues if the phone is not available via the view after insertion.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone)\n    values (p_person_id, p_name, p_email, format_phone(p_phone));\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

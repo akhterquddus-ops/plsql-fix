@@ -1,0 +1,90 @@
+{
+  "task": "t029_reorder_alert",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.8746
+    },
+    {
+      "name": "WAREHOUSE_API",
+      "task": "t013_stock_moves",
+      "score": 0.8095
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.7676
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.7552
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "STOCK_COUNT_API",
+    "INVENTORY_LEVELS",
+    "INVENTORY_LEVELS_AU",
+    "REORDER_REQUESTS",
+    "REORDER_RULES",
+    "T005_ORDERS_API",
+    "WAREHOUSE_API",
+    "T001_ORDERS_API",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "REORDER_RULES"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "STOCK_COUNT_API",
+    "REORDER_RULES"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 2351,
+  "wall_seconds": 30.5,
+  "timestamp": "2026-10-24T10:36:00",
+  "baseline": {
+    "tests": 4,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 2351,
+      "output_tokens": 265,
+      "seconds": 28.25,
+      "edited_objects": [
+        "STOCK_COUNT_API",
+        "REORDER_RULES"
+      ],
+      "cause": "The trigger condition in INVENTORY_LEVELS_AU uses strict inequality (<) in REORDER_RULES.needs_reorder, which prevents a reorder request from being raised when stock exactly equals the reorder point.",
+      "candidate": "create or replace package body stock_count_api as\n  procedure record_count(p_sku in varchar2, p_counted in number) is\n  begin\n    update inventory_levels set on_hand = p_counted where sku = p_sku;\n  end record_count;\n\n  function open_requests(p_sku in varchar2) return number is\n    l_count number;\n  begin\n    select count(*) into l_count from reorder_requests where sku = p_sku;\n    return l_count;\n  end open_requests;\nend stock_count_api;\n/\ncreate or replace package body reorder_rules as\n  function needs_reorder(p_on_hand in number, p_reorder_point in number) return boolean is\n  begin\n    return p_on_hand <= p_reorder_point;\n  end needs_reorder;\nend reorder_rules;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

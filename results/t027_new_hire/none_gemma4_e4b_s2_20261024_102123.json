@@ -1,0 +1,85 @@
+{
+  "task": "t027_new_hire",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ONBOARDING_API"
+  ],
+  "buggy_objects": [
+    "EMPLOYEE_DIRECTORY_IOI"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 920,
+  "wall_seconds": 73.21,
+  "timestamp": "2026-10-24T10:21:23",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 920,
+      "output_tokens": 308,
+      "seconds": 21.33,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The procedure add_hire inserts data into employee_directory_v but the table structure likely requires a different column name or the insert statement is incorrect for the underlying table/view.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone)\n    values (p_person_id, p_name, p_email, p_phone);\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1281,
+      "output_tokens": 469,
+      "seconds": 20.73,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The failing tests indicate that the phone number is not being saved correctly, suggesting the column name used in the INSERT statement for the phone number might be incorrect, or the underlying view/table structure is different from what is assumed. Given the context and the failure, I suspect the column name for phone in employee_directory_v is not 'phone' but perhaps 'phone_number' or similar, although the provided code uses 'phone'. Since the test expects the value to be present, and the code seems logically correct for an insert, I will assume the column name in the view/table is 'phone_number' instead of 'phone' to resolve the NULL issue reported by the tests.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone_number, phone) -- Assuming 'phone_number' is the correct column for the phone number data, and 'phone' might be another field or the original column name was wrong.\n    values (p_person_id, p_name, p_email, p_phone, p_phone); -- Adjusting insert to match potential structure if phone_number is the target.\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "compile_errors": [
+        "PACKAGE BODY ONBOARDING_API line 5, col 68: PL/SQL: ORA-00904: \"PHONE_NUMBER\": invalid identifier",
+        "PACKAGE BODY ONBOARDING_API line 5, col 5: PL/SQL: SQL Statement ignored"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1836,
+      "output_tokens": 517,
+      "seconds": 24.74,
+      "edited_objects": [
+        "ONBOARDING_API"
+      ],
+      "cause": "The original code was correct based on the provided schema context, but the failing tests imply that the column used for phone number storage in employee_directory_v is not 'phone' as used in the INSERT statement, despite the function phone_of retrieving from 'phone'. To fix the NULL issue reported by the tests, I must assume the column name in the INSERT statement is incorrect and should match what phone_of expects, or that the column name in the view is indeed 'phone' but the insert is failing for some reason. Given the compilation error on 'PHONE_NUMBER', I revert the insert to use 'phone' but ensure the function phone_of is using the correct column name if it was implicitly wrong, though it seems correct. The most likely issue is that the column name in the view is different from 'phone' for the phone number, but since the function relies on it, I will assume the column name in the view is 'phone' and the issue is elsewhere, but since I cannot see the view definition, I must stick to the original column names and assume the error was in my previous attempt. I will revert to the original insert structure but ensure the function phone_of is robust.",
+      "candidate": "create or replace package body onboarding_api as\n  procedure add_hire(p_person_id in number, p_name in varchar2,\n                     p_email in varchar2, p_phone in varchar2) is\n  begin\n    insert into employee_directory_v (person_id, full_name, email, phone)\n    values (p_person_id, p_name, p_email, p_phone);\n  end add_hire;\n\n  function email_of(p_person_id in number) return varchar2 is\n    l_email employee_directory_v.email%type;\n  begin\n    select email into l_email from employee_directory_v where person_id = p_person_id;\n    return l_email;\n  end email_of;\n\n  function phone_of(p_person_id in number) return varchar2 is\n    l_phone employee_directory_v.phone%type;\n  begin\n    select phone into l_phone from employee_directory_v where person_id = p_person_id;\n    return l_phone;\n  end phone_of;\nend onboarding_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

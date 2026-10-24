@@ -1,0 +1,87 @@
+{
+  "task": "t026_expense_type",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "EXPENSE_API"
+  ],
+  "buggy_objects": [
+    "AMOUNT_T"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 715,
+  "wall_seconds": 37.82,
+  "timestamp": "2026-10-24T09:42:54",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 715,
+      "output_tokens": 168,
+      "seconds": 15.16,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "The function call to amount_t is missing the necessary context or is incorrectly assumed to handle currency conversion when the amount is already in the base currency or when the rate is 1.",
+      "candidate": "create or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      l_total := l_total + amount_t(l.amount, l.rate_to_base).to_base();\n    end loop;\n    return l_total;\n  end claim_total;\n/",
+      "compile_errors": [
+        "PACKAGE BODY EXPENSE_API line 9, col 18: PLS-00103: Encountered the symbol \"end-of-file\" when expecting one of the following:\n\n   begin end function pragma procedure"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 960,
+      "output_tokens": 150,
+      "seconds": 6.26,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "The package body was missing the closing END statement for the function.",
+      "candidate": "create or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      l_total := l_total + amount_t(l.amount, l.rate_to_base).to_base();\n    end loop;\n    return l_total;\n  end claim_total;\nend expense_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1399,
+      "output_tokens": 164,
+      "seconds": 10.03,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "The logic for calculating the total in the base currency is incorrect because it assumes amount_t handles all conversions, but the conversion should be applied correctly, especially when the rate is 1 (base currency).",
+      "candidate": "create or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      l_total := l_total + l.amount * l.rate_to_base;\n    end loop;\n    return l_total;\n  end claim_total;\n/",
+      "compile_errors": [
+        "PACKAGE BODY EXPENSE_API line 9, col 18: PLS-00103: Encountered the symbol \"end-of-file\" when expecting one of the following:\n\n   begin end function pragma procedure"
+      ],
+      "outcome": "compile_error"
+    }
+  ]
+}

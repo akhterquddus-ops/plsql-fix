@@ -1,0 +1,76 @@
+{
+  "task": "t028_fiscal_quarter",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "SALES_REPORT"
+  ],
+  "buggy_objects": [
+    "FISCAL_CALENDAR"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 833,
+  "wall_seconds": 35.7,
+  "timestamp": "2026-10-24T11:02:03",
+  "baseline": {
+    "tests": 4,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 833,
+      "output_tokens": 157,
+      "seconds": 14.1,
+      "edited_objects": [
+        "SALES_REPORT"
+      ],
+      "cause": "The fiscal quarter definition in the application logic does not align with the expected fiscal year/quarter mapping implied by the failing tests.",
+      "candidate": "create or replace package body sales_report as\n  function quarter_total(p_region in varchar2, p_year in number, p_quarter in number) return number is\n    l_total number;\n  begin\n    select nvl(sum(total), 0)\n      into l_total\n      from quarterly_sales_v\n     where region = p_region and fiscal_year = p_year and fiscal_quarter = p_quarter;\n    return l_total;\n  end quarter_total;\nend sales_report;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1043,
+      "output_tokens": 190,
+      "seconds": 8.03,
+      "edited_objects": [
+        "SALES_REPORT"
+      ],
+      "cause": "The function relies on a view (quarterly_sales_v) which likely uses a standard calendar quarter definition, but the tests imply a custom fiscal quarter definition (e.g., Q1 = Jul-Sep, Q2 = Oct-Dec, Q4 = Apr-Jun).",
+      "candidate": "create or replace package body sales_report as\n  function quarter_total(p_region in varchar2, p_year in number, p_quarter in number) return number is\n    l_total number;\n  begin\n    select nvl(sum(total), 0)\n      into l_total\n      from quarterly_sales_v\n     where region = p_region and fiscal_year = p_year and fiscal_quarter = p_quarter;\n    return l_total;\n  end quarter_total;\nend sales_report;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1286,
+      "output_tokens": 190,
+      "seconds": 7.47,
+      "edited_objects": [
+        "SALES_REPORT"
+      ],
+      "cause": "The function relies on a view (quarterly_sales_v) which likely uses a standard calendar quarter definition, but the tests imply a custom fiscal quarter definition (e.g., Q1 = Jul-Sep, Q2 = Oct-Dec, Q4 = Apr-Jun).",
+      "candidate": "create or replace package body sales_report as\n  function quarter_total(p_region in varchar2, p_year in number, p_quarter in number) return number is\n    l_total number;\n  begin\n    select nvl(sum(total), 0)\n      into l_total\n      from quarterly_sales_v\n     where region = p_region and fiscal_year = p_year and fiscal_quarter = p_quarter;\n    return l_total;\n  end quarter_total;\nend sales_report;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

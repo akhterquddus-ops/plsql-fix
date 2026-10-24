@@ -1,0 +1,104 @@
+{
+  "task": "t028_fiscal_quarter",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "QUARTERLY_SALES_V",
+      "task": "t028_fiscal_quarter",
+      "score": 0.6718
+    },
+    {
+      "name": "FISCAL_CALENDAR",
+      "task": "t028_fiscal_quarter",
+      "score": 0.6284
+    },
+    {
+      "name": "T007_REPORTS_API",
+      "task": "t007_region_summary",
+      "score": 0.5938
+    },
+    {
+      "name": "VAT_RATES_2026",
+      "task": "t015_vat_synonym",
+      "score": 0.5739
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "SALES_REPORT",
+    "QUARTERLY_SALES_V",
+    "FISCAL_CALENDAR",
+    "T007_REPORTS_API",
+    "VAT_RATES_2026"
+  ],
+  "buggy_objects": [
+    "FISCAL_CALENDAR"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1610,
+  "wall_seconds": 51.45,
+  "timestamp": "2026-10-24T11:03:15",
+  "baseline": {
+    "tests": 4,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1610,
+      "output_tokens": 170,
+      "seconds": 20.34,
+      "edited_objects": [
+        "SALES_REPORT"
+      ],
+      "cause": "The fiscal_calendar.quarter_of function incorrectly calculates the quarter for months July through September (Q1) and October through December (Q2) when the fiscal year starts in July.",
+      "candidate": "create or replace package body sales_report as\n  function quarter_total(p_region in varchar2, p_year in number, p_quarter in number) return number is\n    l_total number;\n  begin\n    select nvl(sum(total), 0)\n      into l_total\n      from quarterly_sales_v\n     where region = p_region and fiscal_year = p_year and fiscal_quarter = p_quarter;\n    return l_total;\n  end quarter_total;\nend sales_report;\n/",
+      "outcome": "unchanged"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1833,
+      "output_tokens": 281,
+      "seconds": 12.99,
+      "edited_objects": [
+        "FISCAL_CALENDAR"
+      ],
+      "cause": "The fiscal_calendar.quarter_of function incorrectly calculates the quarter for months July through September (Q1) and October through December (Q2) when the fiscal year starts in July.",
+      "candidate": "create or replace package body fiscal_calendar as\n  function year_of(p_date in date) return number is\n  begin\n    return extract(year from p_date) + case when extract(month from p_date) >= 7 then 1 else 0 end;\n  end year_of;\n\n  function quarter_of(p_date in date) return number is\n  begin\n    return case\n      when extract(month from p_date) between 7 and 9 then 1 -- July, Aug, Sep -> Q1\n      when extract(month from p_date) between 10 and 12 then 2 -- Oct, Nov, Dec -> Q2\n      when extract(month from p_date) between 1 and 3 then 3 -- Jan, Feb, Mar -> Q3\n      when extract(month from p_date) between 4 and 6 then 4 -- Apr, May, Jun -> Q4\n      else null\n    end case;\n  end quarter_of;\nend fiscal_calendar;\n/",
+      "compile_errors": [
+        "PACKAGE BODY FISCAL_CALENDAR line 15, col 9: PLS-00103: Encountered the symbol \"CASE\" when expecting one of the following:\n\n   * & = - + ; < / > at in is mod remainder not rem\n   <an exponent (**)> <> or != or ~= >= <= <> and or like like2\n   like4 likec between || multiset member submultiset <=> <->\n   <#>\nThe symbol \"CASE\" was ignored."
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 2248,
+      "output_tokens": 265,
+      "seconds": 11.93,
+      "edited_objects": [
+        "FISCAL_CALENDAR"
+      ],
+      "cause": "The fiscal_calendar.quarter_of function used an incorrect syntax for the CASE statement in PL/SQL.",
+      "candidate": "create or replace package body fiscal_calendar as\n  function year_of(p_date in date) return number is\n  begin\n    return extract(year from p_date) + case when extract(month from p_date) >= 7 then 1 else 0 end;\n  end year_of;\n\n  function quarter_of(p_date in date) return number is\n  begin\n    return case\n      when extract(month from p_date) between 7 and 9 then 1 -- July, Aug, Sep -> Q1\n      when extract(month from p_date) between 10 and 12 then 2 -- Oct, Nov, Dec -> Q2\n      when extract(month from p_date) between 1 and 3 then 3 -- Jan, Feb, Mar -> Q3\n      when extract(month from p_date) between 4 and 6 then 4 -- Apr, May, Jun -> Q4\n      else null\n    end case;\n  end quarter_of;\nend fiscal_calendar;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

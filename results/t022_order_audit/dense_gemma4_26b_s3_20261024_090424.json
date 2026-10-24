@@ -1,0 +1,84 @@
+{
+  "task": "t022_order_audit",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "SHOP_ORDERS_AU",
+      "task": "t022_order_audit",
+      "score": 0.6806
+    },
+    {
+      "name": "T005_ORDERS_API",
+      "task": "t005_stock_reserve",
+      "score": 0.6738
+    },
+    {
+      "name": "BILLING_API",
+      "task": "t025_bill_status",
+      "score": 0.6491
+    },
+    {
+      "name": "ORDER_STATUS_LOG",
+      "task": "t022_order_audit",
+      "score": 0.6488
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "ORDER_STATUS_API",
+    "SHOP_ORDERS_AU",
+    "T005_ORDERS_API",
+    "BILLING_API",
+    "ORDER_STATUS_LOG"
+  ],
+  "buggy_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "SHOP_ORDERS_AU"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1468,
+  "wall_seconds": 5.67,
+  "timestamp": "2026-10-24T09:04:24",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1468,
+      "output_tokens": 129,
+      "seconds": 4.18,
+      "edited_objects": [
+        "SHOP_ORDERS_AU"
+      ],
+      "cause": "shop_orders_au incorrectly swapped the old and new status values in the insert statement.",
+      "candidate": "create or replace trigger shop_orders_au\nafter update of status on shop_orders\nfor each row\nwhen (new.status <> old.status)\nbegin\n  -- Keeps a history of every status change of an order.\n  insert into order_status_log (order_id, old_status, new_status)\n  values (:new.order_id, :old.status, :new.status);\nend shop_orders_au;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

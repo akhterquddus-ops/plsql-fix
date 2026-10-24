@@ -1,0 +1,61 @@
+{
+  "task": "t026_expense_type",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "graph",
+  "graph_hops": 2,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "EXPENSE_API",
+    "AMOUNT_T",
+    "EXPENSE_LINES"
+  ],
+  "buggy_objects": [
+    "AMOUNT_T"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "AMOUNT_T"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 949,
+  "wall_seconds": 4.4,
+  "timestamp": "2026-10-24T08:23:23",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 949,
+      "output_tokens": 140,
+      "seconds": 3.92,
+      "edited_objects": [
+        "AMOUNT_T"
+      ],
+      "cause": "amount_t.to_base incorrectly divides by rate_to_base instead of multiplying.",
+      "candidate": "create or replace type amount_t as object (\n  value        number,\n  rate_to_base number,\n  -- The amount in the base currency (rate_to_base = base currency per one unit).\n  member function to_base return number\n);\n/\ncreate or replace type body amount_t as\n  member function to_base return number is\n  begin\n    return round(value * rate_to_base, 2);\n  end to_base;\nend;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

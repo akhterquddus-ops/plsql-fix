@@ -1,0 +1,112 @@
+{
+  "task": "t023_tier_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "CUSTOMER_TIERS_V",
+      "task": "t023_tier_discount",
+      "score": 1.0
+    },
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 0.8408
+    },
+    {
+      "name": "DISCOUNT_TIERS",
+      "task": "t023_tier_discount",
+      "score": 0.7081
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.6487
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:e4b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "PRICING_QUOTE",
+    "CUSTOMER_TIERS_V",
+    "T001_PRICING",
+    "DISCOUNT_TIERS",
+    "T001_ORDERS_API"
+  ],
+  "buggy_objects": [
+    "CUSTOMER_TIERS_V"
+  ],
+  "buggy_object_in_context": true,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1422,
+  "wall_seconds": 36.37,
+  "timestamp": "2026-10-24T10:42:10",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1422,
+      "output_tokens": 146,
+      "seconds": 18.67,
+      "edited_objects": [
+        "CUSTOMER_TIERS_V"
+      ],
+      "cause": "The view CUSTOMER_TIERS_V incorrectly selects the tier based on the maximum min_spend strictly less than annual_spend, which fails when annual_spend exactly matches a min_spend threshold.",
+      "candidate": "create or replace view customer_tiers_v as\n-- Loyalty tier of each customer: the highest tier whose minimum spend the customer has reached.\nselect c.customer_id, t.tier_name, t.discount_pct\n  from shop_customers c, discount_tiers t\n where t.min_spend <= c.annual_spend\norder by t.min_spend desc\nfetch first 1 row not matching unique rowid\n/",
+      "compile_errors": [
+        "ORA-02000: missing { ONLY | WITH TIES } keyword"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1612,
+      "output_tokens": 141,
+      "seconds": 5.74,
+      "edited_objects": [
+        "CUSTOMER_TIERS_V"
+      ],
+      "cause": "The view CUSTOMER_TIERS_V incorrectly selects the tier based on the maximum min_spend strictly less than annual_spend, which fails when annual_spend exactly matches a min_spend threshold.",
+      "candidate": "create or replace view customer_tiers_v as\n-- Loyalty tier of each customer: the highest tier whose minimum spend the customer has reached.\nselect c.customer_id, t.tier_name, t.discount_pct\n  from shop_customers c, discount_tiers t\n where t.min_spend <= c.annual_spend\norder by t.min_spend desc\nfetch first 1 row\n/",
+      "compile_errors": [
+        "ORA-02000: missing { ONLY | WITH TIES } keyword"
+      ],
+      "outcome": "compile_error"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1797,
+      "output_tokens": 142,
+      "seconds": 5.65,
+      "edited_objects": [
+        "CUSTOMER_TIERS_V"
+      ],
+      "cause": "The view CUSTOMER_TIERS_V incorrectly selects the tier based on the maximum min_spend strictly less than annual_spend, which fails when annual_spend exactly matches a min_spend threshold.",
+      "candidate": "create or replace view customer_tiers_v as\n-- Loyalty tier of each customer: the highest tier whose minimum spend the customer has reached.\nselect c.customer_id, t.tier_name, t.discount_pct\n  from shop_customers c, discount_tiers t\n where t.min_spend <= c.annual_spend\norder by t.min_spend desc\nfetch first 1 row only\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    }
+  ]
+}

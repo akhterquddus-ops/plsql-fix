@@ -1,0 +1,84 @@
+{
+  "task": "t028_fiscal_quarter",
+  "category": "cross_object",
+  "task_hops": 2,
+  "setting": "hybrid",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "QUARTERLY_SALES_V",
+      "task": "t028_fiscal_quarter",
+      "score": 1.0
+    },
+    {
+      "name": "FISCAL_CALENDAR",
+      "task": "t028_fiscal_quarter",
+      "score": 0.8334
+    },
+    {
+      "name": "T007_REPORTS_API",
+      "task": "t007_region_summary",
+      "score": 0.6308
+    },
+    {
+      "name": "SALES",
+      "task": "t028_fiscal_quarter",
+      "score": 0.5637
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:26b",
+  "seed": 3,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "SALES_REPORT",
+    "QUARTERLY_SALES_V",
+    "FISCAL_CALENDAR",
+    "T007_REPORTS_API",
+    "SALES"
+  ],
+  "buggy_objects": [
+    "FISCAL_CALENDAR"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "FISCAL_CALENDAR"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1503,
+  "wall_seconds": 27.26,
+  "timestamp": "2026-10-24T09:20:49",
+  "baseline": {
+    "tests": 4,
+    "failed": 3,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1503,
+      "output_tokens": 1527,
+      "seconds": 26.77,
+      "edited_objects": [
+        "FISCAL_CALENDAR"
+      ],
+      "cause": "fiscal_calendar.year_of incorrectly increments the year for dates in the first fiscal quarter (July-Sept).",
+      "candidate": "create or replace package fiscal_calendar as\n  -- Fiscal year runs from 1 July to 30 June; fiscal year 2026 = 1 Jul 2025 to 30 Jun 2026.\n  function year_of(p_date in date) return number;\n  function quarter_of(p_date in date) return number;\nend fiscal_calendar;\n/\ncreate or replace package body fiscal_calendar as\n  function year_of(p_date in date) return number is\n  begin\n    return extract(year from p_date) + case when extract(month from p_date) >= 7 then 1 else 0 end;\n  end year_of;\n\n  function quarter_of(p_date in date) return number is\n  begin\n    return trunc(mod(extract(month from p_date) - 7 + 12, 12) / 3) + 1;\n  end quarter_of;\nend fiscal_calendar;\n/\ncreate or replace package fiscal_calendar as\n  -- Fiscal year runs from 1 July to 30 June; fiscal year 2026 = 1 Jul 2025 to 30 Jun 2026.\n  function year_of(p_date in date) return number;\n  function quarter_of(p_date in date) return number;\nend fiscal_calendar;\n/\ncreate or replace package body fiscal_calendar as\n  function year_of(p_date in date) return number is\n  begin\n    return extract(year from p_date) + case when extract(month from p_date) >= 7 then 1 else 0 end;\n  end year_of;\n\n  function quarter_of(p_date in date) return number is\n  begin\n    return trunc(mod(extract(month from p_date) - 7 + 12, 12) / 3) + 1;\n  end quarter_of;\nend fiscal_calendar;\n/",
+      "tests": {
+        "tests": 4,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

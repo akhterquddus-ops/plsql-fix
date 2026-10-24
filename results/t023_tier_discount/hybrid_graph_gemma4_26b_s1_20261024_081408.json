@@ -1,0 +1,87 @@
+{
+  "task": "t023_tier_discount",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "hybrid_graph",
+  "graph_hops": 2,
+  "search_k": 4,
+  "search_alpha": 0.7,
+  "search_hits": [
+    {
+      "name": "T001_PRICING",
+      "task": "t001_order_discount",
+      "score": 1.0
+    },
+    {
+      "name": "T001_ORDERS_API",
+      "task": "t001_order_discount",
+      "score": 0.7889
+    },
+    {
+      "name": "T007_CUSTOMER_Q",
+      "task": "t007_region_summary",
+      "score": 0.7675
+    },
+    {
+      "name": "POINTS_RULES",
+      "task": "t018_loyalty_points",
+      "score": 0.7568
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:26b",
+  "seed": 1,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "PRICING_QUOTE",
+    "CUSTOMER_TIERS_V",
+    "DISCOUNT_TIERS",
+    "SHOP_CUSTOMERS",
+    "T001_PRICING",
+    "T001_ORDERS_API",
+    "T007_CUSTOMER_Q",
+    "POINTS_RULES"
+  ],
+  "buggy_objects": [
+    "CUSTOMER_TIERS_V"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "CUSTOMER_TIERS_V"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1924,
+  "wall_seconds": 4.77,
+  "timestamp": "2026-10-24T08:14:08",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1924,
+      "output_tokens": 147,
+      "seconds": 4.28,
+      "edited_objects": [
+        "CUSTOMER_TIERS_V"
+      ],
+      "cause": "customer_tiers_v used a strict inequality (<) instead of (<=) in the subquery, causing customers at exact tier thresholds to miss their discount.",
+      "candidate": "create or replace view customer_tiers_v as\n-- Loyalty tier of each customer: the highest tier whose minimum spend the customer has reached.\nselect c.customer_id, t.tier_name, t.discount_pct\n  from shop_customers c, discount_tiers t\n where t.min_spend = (select max(t2.min_spend)\n                        from discount_tiers t2\n                       where t2.min_spend <= c.annual_spend)\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+{
+  "task": "t026_expense_type",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "none",
+  "graph_hops": null,
+  "search_k": null,
+  "search_alpha": null,
+  "search_hits": [],
+  "corpus": null,
+  "corpus_size": null,
+  "model": "gemma4:e4b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "cpu",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "EXPENSE_API"
+  ],
+  "buggy_objects": [
+    "AMOUNT_T"
+  ],
+  "buggy_object_in_context": false,
+  "solved": false,
+  "attempts_used": 3,
+  "fixed_objects": [],
+  "localized": null,
+  "touched_buggy_object": false,
+  "first_prompt_tokens": 715,
+  "wall_seconds": 46.45,
+  "timestamp": "2026-10-24T10:17:17",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 715,
+      "output_tokens": 194,
+      "seconds": 14.98,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "The calculation in claim_total incorrectly sums up the converted amounts without proper handling of the base currency amount.",
+      "candidate": "create or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      if l.rate_to_base = 1 then\n        l_total := l_total + l.amount;\n      else\n        l_total := l_total + amount_t(l.amount, l.rate_to_base).to_base();\n      end if;\n    end loop;\n    return l_total;\n  end claim_total;\nend expense_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 2,
+      "prompt_tokens": 1198,
+      "output_tokens": 173,
+      "seconds": 10.31,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "The logic for handling amounts in the base currency (rate_to_base = 1) was incorrect, leading to double counting or miscalculation when compared to the expected results.",
+      "candidate": "create or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      l_total := l_total + amount_t(l.amount, l.rate_to_base).to_base();\n    end loop;\n    return l_total;\n  end claim_total;\nend expense_api;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 2,
+        "errored": 0
+      },
+      "outcome": "test_fail"
+    },
+    {
+      "attempt": 3,
+      "prompt_tokens": 1660,
+      "output_tokens": 237,
+      "seconds": 14.65,
+      "edited_objects": [
+        "EXPENSE_API"
+      ],
+      "cause": "The original implementation of claim_total was correct assuming amount_t correctly handles the conversion, but the failing tests suggest that the conversion logic or the data setup implies that the base currency amount should be added directly without conversion if rate_to_base is 1, or that the conversion itself is flawed for some inputs. Given the previous attempts, reverting to the original structure is the most likely fix if the issue is in the conditional logic introduced previously, or if the test expects the original simple summation.",
+      "candidate": "create or replace package body expense_api as\n  function claim_total(p_claim_id in number) return number is\n    l_total number := 0;\n  begin\n    for l in (select amount, rate_to_base from expense_lines where claim_id = p_claim_id) loop\n      l_total := l_total + amount_t(l.amount, l.rate_to_base).to_base();\n    end loop;\n    return l_total;\n  end claim_total;\nend expense_api;\n/",
+      "outcome": "unchanged"
+    }
+  ]
+}

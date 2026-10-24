@@ -1,0 +1,84 @@
+{
+  "task": "t024_free_shipping",
+  "category": "cross_object",
+  "task_hops": 1,
+  "setting": "dense",
+  "graph_hops": null,
+  "search_k": 4,
+  "search_alpha": null,
+  "search_hits": [
+    {
+      "name": "T009_SHIPPING_PKG",
+      "task": "t009_shipping_weight",
+      "score": 0.7929
+    },
+    {
+      "name": "FREIGHT_CONFIG",
+      "task": "t024_free_shipping",
+      "score": 0.7262
+    },
+    {
+      "name": "T003_FEES",
+      "task": "t003_transfer_fee",
+      "score": 0.6692
+    },
+    {
+      "name": "T009_CHECKOUT_API",
+      "task": "t009_shipping_weight",
+      "score": 0.6546
+    }
+  ],
+  "corpus": "tasks",
+  "corpus_size": 101,
+  "model": "gemma4:26b",
+  "seed": 2,
+  "temperature": 0.2,
+  "device": "kaggle-t4x2",
+  "num_ctx": 8192,
+  "max_attempts": 3,
+  "context_objects": [
+    "SHIPPING_COST",
+    "T009_SHIPPING_PKG",
+    "FREIGHT_CONFIG",
+    "T003_FEES",
+    "T009_CHECKOUT_API"
+  ],
+  "buggy_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "buggy_object_in_context": true,
+  "solved": true,
+  "attempts_used": 1,
+  "fixed_objects": [
+    "FREIGHT_CONFIG"
+  ],
+  "localized": true,
+  "touched_buggy_object": true,
+  "first_prompt_tokens": 1548,
+  "wall_seconds": 4.46,
+  "timestamp": "2026-10-24T08:43:31",
+  "baseline": {
+    "tests": 3,
+    "failed": 2,
+    "errored": 0
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "prompt_tokens": 1548,
+      "output_tokens": 124,
+      "seconds": 3.98,
+      "edited_objects": [
+        "FREIGHT_CONFIG"
+      ],
+      "cause": "freight_config.c_free_over was set to 50000 instead of 5000",
+      "candidate": "create or replace package freight_config as\n  -- Shipping settings. Amounts in the shop currency, weights in kg.\n  c_base_fee   constant number := 250;\n  c_fee_per_kg constant number := 40;\n  c_free_over  constant number := 5000;   -- orders above this amount ship free\nend freight_config;\n/",
+      "tests": {
+        "tests": 3,
+        "failed": 0,
+        "errored": 0
+      },
+      "outcome": "pass"
+    }
+  ]
+}
